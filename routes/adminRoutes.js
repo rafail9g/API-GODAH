@@ -2,38 +2,38 @@ const express = require("express");
 const router = express.Router();
 
 const {
-  getUsers,
-  getUserById,
-  createUser,
-  updateUser,
-  deleteUser
-} = require("../controllers/userController");
+  getAdmins,
+  getAdminById,
+  createAdmin,
+  updateAdmin,
+  deleteAdmin
+} = require("../controllers/adminController");
 
 /**
  * @swagger
  * tags:
- *   name: Users
- *   description: API untuk mengelola data users
+ *   name: Admins
+ *   description: API untuk mengelola data admin
  */
 
 /**
  * @swagger
- * /users:
+ * /admins:
  *   get:
- *     summary: Mengambil semua users
- *     tags: [Users]
+ *     summary: Mengambil semua admin
+ *     tags: [Admins]
  *     responses:
  *       200:
- *         description: Berhasil
+ *         description: Berhasil mengambil semua admin
  */
-router.get("/", getUsers);
+router.get("/", getAdmins);
 
 /**
  * @swagger
- * /users/{id}:
+ * /admins/{id}:
  *   get:
- *     summary: Mengambil user berdasarkan ID
- *     tags: [Users]
+ *     summary: Mengambil admin berdasarkan ID
+ *     tags: [Admins]
  *     parameters:
  *       - in: path
  *         name: id
@@ -42,16 +42,16 @@ router.get("/", getUsers);
  *           type: string
  *     responses:
  *       200:
- *         description: Berhasil
+ *         description: Berhasil mengambil admin
  */
-router.get("/:id", getUserById);
+router.get("/:id", getAdminById);
 
 /**
  * @swagger
- * /users:
+ * /admins:
  *   post:
- *     summary: Menambahkan user
- *     tags: [Users]
+ *     summary: Menambahkan admin baru
+ *     tags: [Admins]
  *     requestBody:
  *       required: true
  *       content:
@@ -61,34 +61,28 @@ router.get("/:id", getUserById);
  *             properties:
  *               nama:
  *                 type: string
- *                 example: Rafail
+ *                 example: Admin Baru
  *               email:
  *                 type: string
- *                 example: rafail@mail.com
+ *                 example: adminbaru@mail.com
  *               password_hash:
  *                 type: string
- *                 example: manual_api
- *               no_hp:
+ *                 example: admin123
+ *               role:
  *                 type: string
- *                 example: "081234567890"
- *               alamat:
- *                 type: string
- *                 example: Jember
- *               status:
- *                 type: string
- *                 example: aktif
+ *                 example: admin
  *     responses:
  *       201:
- *         description: Berhasil ditambahkan
+ *         description: Admin berhasil ditambahkan
  */
-router.post("/", createUser);
+router.post("/", createAdmin);
 
 /**
  * @swagger
- * /users/{id}:
+ * /admins/{id}:
  *   put:
- *     summary: Mengubah user
- *     tags: [Users]
+ *     summary: Mengubah data admin
+ *     tags: [Admins]
  *     parameters:
  *       - in: path
  *         name: id
@@ -104,28 +98,28 @@ router.post("/", createUser);
  *             properties:
  *               nama:
  *                 type: string
+ *                 example: Admin Update
  *               email:
  *                 type: string
+ *                 example: adminupdate@mail.com
  *               password_hash:
  *                 type: string
- *               no_hp:
+ *                 example: admin456
+ *               role:
  *                 type: string
- *               alamat:
- *                 type: string
- *               status:
- *                 type: string
+ *                 example: admin
  *     responses:
  *       200:
- *         description: Berhasil diubah
+ *         description: Admin berhasil diubah
  */
-router.put("/:id", updateUser);
+router.put("/:id", updateAdmin);
 
 /**
  * @swagger
- * /users/{id}:
+ * /admins/{id}:
  *   delete:
- *     summary: Menghapus user
- *     tags: [Users]
+ *     summary: Menghapus admin
+ *     tags: [Admins]
  *     parameters:
  *       - in: path
  *         name: id
@@ -134,8 +128,8 @@ router.put("/:id", updateUser);
  *           type: string
  *     responses:
  *       200:
- *         description: Berhasil dihapus
+ *         description: Admin berhasil dihapus
  */
-router.delete("/:id", deleteUser);
+router.delete("/:id", deleteAdmin);
 
 module.exports = router;
