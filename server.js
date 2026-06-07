@@ -1,6 +1,6 @@
 const express = require("express");
 const cors = require("cors");
-require("dotenv").config();
+require("dotenv").config({ override: true });
 
 const userRoutes = require("./routes/userRoutes");
 const adminRoutes = require("./routes/adminRoutes");
@@ -8,6 +8,7 @@ const porterRoutes = require("./routes/porterRoutes");
 const orderRoutes = require("./routes/orderRoutes");
 const orderTrackingRoutes = require("./routes/orderTrackingRoutes");
 const buktiPengirimanRoutes = require("./routes/buktiPengirimanRoutes");
+const paymentRoutes = require("./routes/paymentRoutes");
 
 const swaggerUi = require("swagger-ui-express");
 const swaggerSpec = require("./config/swagger");
@@ -26,10 +27,17 @@ app.use("/admins", adminRoutes);
 app.use("/porters", porterRoutes);
 app.use("/orders", orderRoutes);
 app.use("/order-tracking", orderTrackingRoutes);
+app.use("/payments", paymentRoutes);
 app.use("/", buktiPengirimanRoutes);
 
 app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 
-app.listen(process.env.PORT || 3000, () => {
-  console.log(`Server berjalan di port ${process.env.PORT || 3000}`);
+const PORT = process.env.PORT || 3000;
+
+const server = app.listen(PORT, "0.0.0.0", () => {
+  console.log(`Server berjalan di port ${PORT}`);
+});
+
+server.on("error", (err) => {
+  console.error("Server gagal jalan:", err);
 });
