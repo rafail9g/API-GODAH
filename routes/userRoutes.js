@@ -6,8 +6,10 @@ const {
   getUserById,
   createUser,
   updateUser,
+  resetPassword,
   deleteUser
 } = require("../controllers/userController");
+const { authenticate, requireRole } = require("../Middleware/middleware");
 
 /**
  * @swagger
@@ -20,19 +22,96 @@ const {
  * @swagger
  * /users:
  *   get:
- *     summary: Mengambil semua users
+ *     summary: Mengambil semua users (Admin)
  *     tags: [Users]
  *     responses:
  *       200:
  *         description: Berhasil
  */
-router.get("/", getUsers);
+router.get("/me", authenticate, requireRole("user"), (req, res) => {
+  req.params.id = req.auth.id;
+  return getUserById(req, res);
+});
+
+/**
+ * @swagger
+ * /users/me:
+ *   put:
+ *     summary: Mengubah profil sendiri (User)
+ *     tags: [Users]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           example:
+ *             nama: Rafail
+ *             no_hp: "081234567890"
+ *             alamat: Jember
+ *           schema:
+ *             type: object
+ *             properties:
+ *               nama:
+ *                 type: string
+ *               no_hp:
+ *                 type: string
+ *               alamat:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: Profil berhasil diubah
+ *         content:
+ *           application/json:
+ *             example:
+ *               success: true
+ *               message: User berhasil diupdate
+ *               data:
+ *                 nama: Rafail
+ *                 no_hp: "081234567890"
+ *                 alamat: Jember
+ */
+router.put("/me", authenticate, requireRole("user"), (req, res) => {
+  req.params.id = req.auth.id;
+  return updateUser(req, res);
+});
+
+/**
+ * @swagger
+ * /users/me/reset-password:
+ *   put:
+ *     summary: Reset password sendiri (User)
+ *     tags: [Users]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           example:
+ *             current_password: password123
+ *             new_password: password456
+ *           schema:
+ *             type: object
+ *             properties:
+ *               current_password:
+ *                 type: string
+ *               new_password:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: Password berhasil direset
+ *         content:
+ *           application/json:
+ *             example:
+ *               success: true
+ *               message: Password berhasil direset
+ */
+router.put("/me/reset-password", authenticate, requireRole("user"), resetPassword);
+
+router.get("/", authenticate, requireRole("admin"), getUsers);
 
 /**
  * @swagger
  * /users/{id}:
  *   get:
- *     summary: Mengambil user berdasarkan ID
+ *     summary: Mengambil user berdasarkan ID (Admin)
  *     tags: [Users]
  *     parameters:
  *       - in: path
@@ -44,13 +123,13 @@ router.get("/", getUsers);
  *       200:
  *         description: Berhasil
  */
-router.get("/:id", getUserById);
+router.get("/:id", authenticate, requireRole("admin"), getUserById);
 
 /**
  * @swagger
  * /users:
  *   post:
- *     summary: Menambahkan user
+ *     summary: Menambahkan user (Admin)
  *     tags: [Users]
  *     requestBody:
  *       required: true
@@ -76,18 +155,19 @@ router.get("/:id", getUserById);
  *                 example: Jember
  *               status:
  *                 type: string
+ *                 enum: [aktif, nonaktif, diblokir]
  *                 example: aktif
  *     responses:
  *       201:
  *         description: Berhasil ditambahkan
  */
-router.post("/", createUser);
+router.post("/", authenticate, requireRole("admin"), createUser);
 
 /**
  * @swagger
  * /users/{id}:
  *   put:
- *     summary: Mengubah user
+ *     summary: Mengubah status user (Admin)
  *     tags: [Users]
  *     parameters:
  *       - in: path
@@ -99,32 +179,33 @@ router.post("/", createUser);
  *       required: true
  *       content:
  *         application/json:
+ *           example:
+ *             status: aktif
  *           schema:
  *             type: object
  *             properties:
- *               nama:
- *                 type: string
- *               email:
- *                 type: string
- *               password_hash:
- *                 type: string
- *               no_hp:
- *                 type: string
- *               alamat:
- *                 type: string
  *               status:
  *                 type: string
+ *                 enum: [aktif, nonaktif, diblokir]
+ *                 example: aktif
  *     responses:
  *       200:
  *         description: Berhasil diubah
+ *         content:
+ *           application/json:
+ *             example:
+ *               success: true
+ *               message: User berhasil diupdate
+ *               data:
+ *                 status: aktif
  */
-router.put("/:id", updateUser);
+router.put("/:id", authenticate, requireRole("admin"), updateUser);
 
 /**
  * @swagger
  * /users/{id}:
  *   delete:
- *     summary: Menghapus user
+ *     summary: Menghapus user (Admin)
  *     tags: [Users]
  *     parameters:
  *       - in: path
@@ -136,6 +217,6 @@ router.put("/:id", updateUser);
  *       200:
  *         description: Berhasil dihapus
  */
-router.delete("/:id", deleteUser);
+router.delete("/:id", authenticate, requireRole("admin"), deleteUser);
 
 module.exports = router;

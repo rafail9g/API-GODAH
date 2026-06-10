@@ -5,10 +5,13 @@ const {
   getOrderTrackings,
   getOrderTrackingById,
   getTrackingByOrderId,
+  getMyOrderTracking,
+  getMyOrderTrackings,
   createOrderTracking,
   updateOrderTracking,
   deleteOrderTracking
 } = require("../controllers/orderTrackingController");
+const { authenticate, requireRole } = require("../Middleware/middleware");
 
 /**
  * @swagger
@@ -21,19 +24,19 @@ const {
  * @swagger
  * /order-tracking:
  *   get:
- *     summary: Mengambil semua tracking order
+ *     summary: Mengambil semua tracking order (Admin)
  *     tags: [Order Tracking]
  *     responses:
  *       200:
  *         description: Berhasil mengambil semua tracking order
  */
-router.get("/", getOrderTrackings);
+router.get("/", authenticate, requireRole("admin"), getOrderTrackings);
 
 /**
  * @swagger
  * /order-tracking:
  *   post:
- *     summary: Menambahkan tracking order manual
+ *     summary: Menambahkan tracking order manual (Porter/Admin)
  *     tags: [Order Tracking]
  *     requestBody:
  *       required: true
@@ -60,13 +63,13 @@ router.get("/", getOrderTrackings);
  *       201:
  *         description: Tracking berhasil ditambahkan
  */
-router.post("/", createOrderTracking);
+router.post("/", authenticate, requireRole("porter", "admin"), createOrderTracking);
 
 /**
  * @swagger
  * /order-tracking/order/{orderId}:
  *   get:
- *     summary: Mengambil tracking berdasarkan order ID
+ *     summary: Mengambil tracking berdasarkan order ID (User/Porter/Admin)
  *     tags: [Order Tracking]
  *     parameters:
  *       - in: path
@@ -79,13 +82,65 @@ router.post("/", createOrderTracking);
  *       200:
  *         description: Berhasil mengambil tracking berdasarkan order
  */
-router.get("/order/:orderId", getTrackingByOrderId);
+router.get("/order/:orderId", authenticate, getTrackingByOrderId);
+
+/**
+ * @swagger
+ * /order-tracking/my:
+ *   get:
+ *     summary: Mengambil semua tracking order milik user login (User)
+ *     tags: [Order Tracking]
+ *     responses:
+ *       200:
+ *         description: Tracking semua order user berhasil diambil
+ *         content:
+ *           application/json:
+ *             example:
+ *               success: true
+ *               message: Tracking order user berhasil diambil
+ *               data:
+ *                 - order:
+ *                     id: order-id
+ *                     status: menuju_lokasi
+ *                   tracking:
+ *                     - status_perjalanan: menunggu
+ *                     - status_perjalanan: diterima
+ */
+router.get("/my", authenticate, requireRole("user"), getMyOrderTrackings);
+
+/**
+ * @swagger
+ * /order-tracking/my-order/{orderId}:
+ *   get:
+ *     summary: Mengambil tracking order milik user login (User)
+ *     tags: [Order Tracking]
+ *     parameters:
+ *       - in: path
+ *         name: orderId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: UUID order milik user login
+ *     responses:
+ *       200:
+ *         description: Tracking order berhasil diambil
+ *         content:
+ *           application/json:
+ *             example:
+ *               success: true
+ *               message: Tracking order berhasil diambil
+ *               data: []
+ *               tracking: []
+ *       403:
+ *         description: User tidak punya akses ke order ini
+ */
+router.get("/my-order/:orderId", authenticate, requireRole("user"), getMyOrderTracking);
 
 /**
  * @swagger
  * /order-tracking/{id}:
  *   get:
- *     summary: Mengambil tracking berdasarkan ID
+ *     summary: Mengambil tracking berdasarkan ID (Admin)
  *     tags: [Order Tracking]
  *     parameters:
  *       - in: path
@@ -98,13 +153,13 @@ router.get("/order/:orderId", getTrackingByOrderId);
  *       200:
  *         description: Berhasil mengambil tracking
  */
-router.get("/:id", getOrderTrackingById);
+router.get("/:id", authenticate, requireRole("admin"), getOrderTrackingById);
 
 /**
  * @swagger
  * /order-tracking/{id}:
  *   put:
- *     summary: Mengubah tracking order
+ *     summary: Mengubah tracking order (Admin)
  *     tags: [Order Tracking]
  *     parameters:
  *       - in: path
@@ -136,13 +191,13 @@ router.get("/:id", getOrderTrackingById);
  *       200:
  *         description: Tracking berhasil diubah
  */
-router.put("/:id", updateOrderTracking);
+router.put("/:id", authenticate, requireRole("admin"), updateOrderTracking);
 
 /**
  * @swagger
  * /order-tracking/{id}:
  *   delete:
- *     summary: Menghapus tracking order
+ *     summary: Menghapus tracking order (Admin)
  *     tags: [Order Tracking]
  *     parameters:
  *       - in: path
@@ -155,6 +210,6 @@ router.put("/:id", updateOrderTracking);
  *       200:
  *         description: Tracking berhasil dihapus
  */
-router.delete("/:id", deleteOrderTracking);
+router.delete("/:id", authenticate, requireRole("admin"), deleteOrderTracking);
 
 module.exports = router;

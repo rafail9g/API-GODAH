@@ -1,5 +1,6 @@
 const { snap, coreApi } = require("../config/midtrans");
 const supabase = require("../config/supabase");
+const { firstDefined } = require("../utils/mobileContract");
 
 function mapMidtransStatus(transactionStatus, fraudStatus) {
   if (transactionStatus === "capture") {
@@ -23,9 +24,41 @@ function generateMidtransOrderId(orderId) {
   return `GD-${Date.now()}-${shortOrderId}`;
 }
 
+async function ensurePaymentAccessByOrderId(res, orderId, auth) {
+  if (!auth || auth.role === "admin") return true;
+
+  const { data: order, error } = await supabase
+    .from("orders")
+    .select("user_id")
+    .eq("id", orderId)
+    .single();
+
+  if (error || !order) {
+    res.status(404).json({
+      success: false,
+      message: "Order tidak ditemukan",
+      error: error ? error.message : null,
+    });
+    return false;
+  }
+
+  if (auth.role !== "user" || order.user_id !== auth.id) {
+    res.status(403).json({
+      success: false,
+      message: "User hanya bisa mengakses payment order miliknya",
+    });
+    return false;
+  }
+
+  return true;
+}
+
 async function createPayment(req, res) {
   try {
-    const { order_id, user_name, user_email, amount } = req.body || {};
+    const body = req.body || {};
+    const order_id = firstDefined(body.order_id, body.orderId);
+    const user_name = firstDefined(body.user_name, body.userName, body.name);
+    const user_email = firstDefined(body.user_email, body.userEmail, body.email);
 
     if (!order_id) {
       return res.status(400).json({
@@ -48,7 +81,14 @@ async function createPayment(req, res) {
       });
     }
 
-    let finalAmount = amount ? Number(amount) : Number(order.total_biaya);
+    if (req.auth?.role === "user" && order.user_id !== req.auth.id) {
+      return res.status(403).json({
+        success: false,
+        message: "User hanya bisa membuat payment untuk order miliknya",
+      });
+    }
+
+    let finalAmount = Number(order.total_biaya);
 
     if (Number.isNaN(finalAmount) || finalAmount <= 0) {
       return res.status(400).json({
@@ -225,6 +265,8 @@ async function getPaymentByOrderId(req, res) {
       });
     }
 
+    if (!(await ensurePaymentAccessByOrderId(res, order_id, req.auth))) return;
+
     return res.status(200).json({
       success: true,
       message: "Payment ditemukan",
@@ -277,7 +319,8 @@ async function getPaymentById(req, res) {
 
 async function checkPaymentStatus(req, res) {
   try {
-    const { midtrans_order_id } = req.body || {};
+    const body = req.body || {};
+    const midtrans_order_id = firstDefined(body.midtrans_order_id, body.midtransOrderId);
 
     if (!midtrans_order_id) {
       return res.status(400).json({
@@ -299,6 +342,8 @@ async function checkPaymentStatus(req, res) {
         error: localError ? localError.message : null,
       });
     }
+
+    if (!(await ensurePaymentAccessByOrderId(res, localPayment.order_id, req.auth))) return;
 
     try {
       const statusResponse = await coreApi.transaction.status(midtrans_order_id);
@@ -366,7 +411,9 @@ async function checkPaymentStatus(req, res) {
 
 async function markPaymentPaidManual(req, res) {
   try {
-    const { midtrans_order_id, payment_type } = req.body || {};
+    const body = req.body || {};
+    const midtrans_order_id = firstDefined(body.midtrans_order_id, body.midtransOrderId);
+    const payment_type = firstDefined(body.payment_type, body.paymentType);
 
     if (!midtrans_order_id) {
       return res.status(400).json({
@@ -374,6 +421,22 @@ async function markPaymentPaidManual(req, res) {
         message: "midtrans_order_id wajib diisi",
       });
     }
+
+    const { data: existingPayment, error: existingError } = await supabase
+      .from("payments")
+      .select("order_id")
+      .eq("midtrans_order_id", midtrans_order_id)
+      .single();
+
+    if (existingError || !existingPayment) {
+      return res.status(404).json({
+        success: false,
+        message: "Payment tidak ditemukan",
+        error: existingError ? existingError.message : null,
+      });
+    }
+
+    if (!(await ensurePaymentAccessByOrderId(res, existingPayment.order_id, req.auth))) return;
 
     const { data: payment, error } = await supabase
       .from("payments")
@@ -393,13 +456,6 @@ async function markPaymentPaidManual(req, res) {
         success: false,
         message: "Gagal update payment manual",
         error: error.message,
-      });
-    }
-
-    if (!payment) {
-      return res.status(404).json({
-        success: false,
-        message: "Payment tidak ditemukan",
       });
     }
 

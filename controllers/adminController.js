@@ -1,4 +1,24 @@
 const supabase = require("../config/supabase");
+const { failure, success } = require("../utils/mobileContract");
+
+const getAdminContacts = async (_req, res) => {
+  const { data, error } = await supabase
+    .from("admins")
+    .select("*")
+    .order("created_at", { ascending: true });
+
+  if (error) return failure(res, 400, "Gagal mengambil call center admin", error.message);
+
+  const contacts = (data || []).map((admin) => ({
+    id: admin.id,
+    nama: admin.nama,
+    email: admin.email,
+    no_hp: admin.no_hp || admin.phone || null,
+    role: admin.role,
+  }));
+
+  return success(res, "Call center admin berhasil diambil", contacts);
+};
 
 const getAdmins = async (req, res) => {
   const { data, error } = await supabase.from("admins").select("*");
@@ -55,6 +75,7 @@ const deleteAdmin = async (req, res) => {
 };
 
 module.exports = {
+  getAdminContacts,
   getAdmins,
   getAdminById,
   createAdmin,

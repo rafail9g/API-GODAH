@@ -3,8 +3,6 @@ const midtransClient = require("midtrans-client");
 const isProduction = process.env.MIDTRANS_IS_PRODUCTION === "true";
 
 console.log("MIDTRANS MODE:", isProduction ? "PRODUCTION" : "SANDBOX");
-console.log("SERVER KEY PREFIX:", process.env.MIDTRANS_SERVER_KEY?.slice(0, 13));
-console.log("CLIENT KEY PREFIX:", process.env.MIDTRANS_CLIENT_KEY?.slice(0, 13));
 
 const snap = new midtransClient.Snap({
   isProduction,

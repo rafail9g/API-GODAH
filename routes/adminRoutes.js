@@ -2,12 +2,25 @@ const express = require("express");
 const router = express.Router();
 
 const {
+  getAdminContacts,
   getAdmins,
   getAdminById,
   createAdmin,
   updateAdmin,
   deleteAdmin
 } = require("../controllers/adminController");
+const { authenticate, requireRole } = require("../Middleware/middleware");
+
+/**
+ * @swagger
+ * /admins/call-center:
+ *   get:
+ *     summary: Mengambil kontak call center admin (User)
+ *     tags: [Admins]
+ */
+router.get("/call-center", authenticate, requireRole("user"), getAdminContacts);
+
+router.use(authenticate, requireRole("admin"));
 
 /**
  * @swagger
@@ -20,7 +33,7 @@ const {
  * @swagger
  * /admins:
  *   get:
- *     summary: Mengambil semua admin
+ *     summary: Mengambil semua admin (Admin)
  *     tags: [Admins]
  *     responses:
  *       200:
@@ -32,7 +45,7 @@ router.get("/", getAdmins);
  * @swagger
  * /admins/{id}:
  *   get:
- *     summary: Mengambil admin berdasarkan ID
+ *     summary: Mengambil admin berdasarkan ID (Admin)
  *     tags: [Admins]
  *     parameters:
  *       - in: path
@@ -50,7 +63,7 @@ router.get("/:id", getAdminById);
  * @swagger
  * /admins:
  *   post:
- *     summary: Menambahkan admin baru
+ *     summary: Menambahkan admin baru (Admin)
  *     tags: [Admins]
  *     requestBody:
  *       required: true
@@ -81,7 +94,7 @@ router.post("/", createAdmin);
  * @swagger
  * /admins/{id}:
  *   put:
- *     summary: Mengubah data admin
+ *     summary: Mengubah data admin (Admin)
  *     tags: [Admins]
  *     parameters:
  *       - in: path
@@ -118,7 +131,7 @@ router.put("/:id", updateAdmin);
  * @swagger
  * /admins/{id}:
  *   delete:
- *     summary: Menghapus admin
+ *     summary: Menghapus admin (Admin)
  *     tags: [Admins]
  *     parameters:
  *       - in: path

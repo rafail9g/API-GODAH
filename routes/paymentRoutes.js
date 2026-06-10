@@ -9,6 +9,7 @@ const {
   checkPaymentStatus,
   markPaymentPaidManual
 } = require("../controllers/paymentController");
+const { authenticate, requireRole } = require("../Middleware/middleware");
 
 /**
  * @swagger
@@ -21,13 +22,15 @@ const {
  * @swagger
  * /payments/create:
  *   post:
- *     summary: Membuat transaksi pembayaran Midtrans
+ *     summary: Membuat transaksi pembayaran Midtrans (User/Admin)
  *     tags: [Payments]
- *     description: Membuat Snap Token dan redirect URL Midtrans berdasarkan order_id. Amount bisa dikirim manual atau diambil dari total_biaya order.
+ *     description: Membuat Snap Token dan redirect URL Midtrans berdasarkan order_id. Amount otomatis diambil dari total_biaya order.
  *     requestBody:
  *       required: true
  *       content:
  *         application/json:
+ *           example:
+ *             order_id: 0bfc19b6-dfc7-44f9-8fce-c92df657bc2e
  *           schema:
  *             type: object
  *             required:
@@ -36,18 +39,21 @@ const {
  *               order_id:
  *                 type: string
  *                 example: 0bfc19b6-dfc7-44f9-8fce-c92df657bc2e
- *               amount:
- *                 type: integer
- *                 example: 15000
- *               user_name:
- *                 type: string
- *                 example: Rafail
- *               user_email:
- *                 type: string
- *                 example: test@gmail.com
  *     responses:
  *       201:
  *         description: Transaksi Midtrans berhasil dibuat
+ *         content:
+ *           application/json:
+ *             example:
+ *               success: true
+ *               message: Transaksi Midtrans berhasil dibuat
+ *               midtrans_order_id: GD-1780807575772-c88e597c
+ *               snap_token: 0b8f4a52-xxxx-xxxx-xxxx-xxxxxxxxxxxx
+ *               redirect_url: https://app.sandbox.midtrans.com/snap/v4/redirection/0b8f4a52-xxxx-xxxx-xxxx-xxxxxxxxxxxx
+ *               data:
+ *                 order_id: 0bfc19b6-dfc7-44f9-8fce-c92df657bc2e
+ *                 amount: 15000
+ *                 status: pending
  *       400:
  *         description: Request tidak valid
  *       404:
@@ -55,13 +61,13 @@ const {
  *       500:
  *         description: Gagal membuat transaksi Midtrans
  */
-router.post("/create", createPayment);
+router.post("/create", authenticate, requireRole("user", "admin"), createPayment);
 
 /**
  * @swagger
  * /payments/notification:
  *   post:
- *     summary: Webhook notifikasi pembayaran dari Midtrans
+ *     summary: Webhook notifikasi pembayaran dari Midtrans (Midtrans)
  *     tags: [Payments]
  *     description: Endpoint ini dipanggil otomatis oleh Midtrans saat status pembayaran berubah.
  */
@@ -71,7 +77,7 @@ router.post("/notification", handleNotification);
  * @swagger
  * /payments/check-status:
  *   post:
- *     summary: Cek status pembayaran secara manual ke Midtrans
+ *     summary: Cek status pembayaran secara manual ke Midtrans (User/Admin)
  *     tags: [Payments]
  *     description: Digunakan untuk mengecek status transaksi jika webhook belum jalan atau ingin sinkronisasi manual.
  *     requestBody:
@@ -96,13 +102,13 @@ router.post("/notification", handleNotification);
  *       500:
  *         description: Gagal cek status payment
  */
-router.post("/check-status", checkPaymentStatus);
+router.post("/check-status", authenticate, requireRole("user", "admin"), checkPaymentStatus);
 
 /**
  * @swagger
  * /payments/mark-paid-manual:
  *   post:
- *     summary: Mengubah status payment menjadi paid secara manual untuk development/demo
+ *     summary: Mengubah status payment menjadi paid manual (User/Admin)
  *     tags: [Payments]
  *     description: Endpoint khusus development/demo untuk mengubah status pembayaran menjadi paid jika webhook atau check-status Midtrans belum stabil. Jangan digunakan untuk production.
  *     requestBody:
@@ -130,13 +136,13 @@ router.post("/check-status", checkPaymentStatus);
  *       500:
  *         description: Gagal update payment manual
  */
-router.post("/mark-paid-manual", markPaymentPaidManual);
+router.post("/mark-paid-manual", authenticate, requireRole("user", "admin"), markPaymentPaidManual);
 
 /**
  * @swagger
  * /payments/order/{order_id}:
  *   get:
- *     summary: Mengambil data pembayaran berdasarkan order ID
+ *     summary: Mengambil data pembayaran berdasarkan order ID (User/Admin)
  *     tags: [Payments]
  *     parameters:
  *       - in: path
@@ -154,13 +160,13 @@ router.post("/mark-paid-manual", markPaymentPaidManual);
  *       500:
  *         description: Gagal mengambil payment berdasarkan order_id
  */
-router.get("/order/:order_id", getPaymentByOrderId);
+router.get("/order/:order_id", authenticate, requireRole("user", "admin"), getPaymentByOrderId);
 
 /**
  * @swagger
  * /payments/{id}:
  *   get:
- *     summary: Mengambil data pembayaran berdasarkan ID payment
+ *     summary: Mengambil data pembayaran berdasarkan ID payment (Admin)
  *     tags: [Payments]
  *     parameters:
  *       - in: path
@@ -178,6 +184,6 @@ router.get("/order/:order_id", getPaymentByOrderId);
  *       500:
  *         description: Terjadi kesalahan server
  */
-router.get("/:id", getPaymentById);
+router.get("/:id", authenticate, requireRole("admin"), getPaymentById);
 
 module.exports = router;
