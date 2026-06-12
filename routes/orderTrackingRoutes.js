@@ -11,7 +11,7 @@ const {
   updateOrderTracking,
   deleteOrderTracking
 } = require("../controllers/orderTrackingController");
-const { authenticate, requireRole } = require("../Middleware/middleware");
+const { optionalAuthenticate } = require("../Middleware/middleware");
 
 /**
  * @swagger
@@ -30,7 +30,7 @@ const { authenticate, requireRole } = require("../Middleware/middleware");
  *       200:
  *         description: Berhasil mengambil semua tracking order
  */
-router.get("/", authenticate, requireRole("admin"), getOrderTrackings);
+router.get("/", optionalAuthenticate, getOrderTrackings);
 
 /**
  * @swagger
@@ -63,7 +63,7 @@ router.get("/", authenticate, requireRole("admin"), getOrderTrackings);
  *       201:
  *         description: Tracking berhasil ditambahkan
  */
-router.post("/", authenticate, requireRole("porter", "admin"), createOrderTracking);
+router.post("/", optionalAuthenticate, createOrderTracking);
 
 /**
  * @swagger
@@ -82,7 +82,7 @@ router.post("/", authenticate, requireRole("porter", "admin"), createOrderTracki
  *       200:
  *         description: Berhasil mengambil tracking berdasarkan order
  */
-router.get("/order/:orderId", authenticate, getTrackingByOrderId);
+router.get("/order/:orderId", optionalAuthenticate, getTrackingByOrderId);
 
 /**
  * @swagger
@@ -106,7 +106,7 @@ router.get("/order/:orderId", authenticate, getTrackingByOrderId);
  *                     - status_perjalanan: menunggu
  *                     - status_perjalanan: diterima
  */
-router.get("/my", authenticate, requireRole("user"), getMyOrderTrackings);
+router.get("/my", optionalAuthenticate, getMyOrderTrackings);
 
 /**
  * @swagger
@@ -134,7 +134,7 @@ router.get("/my", authenticate, requireRole("user"), getMyOrderTrackings);
  *       403:
  *         description: User tidak punya akses ke order ini
  */
-router.get("/my-order/:orderId", authenticate, requireRole("user"), getMyOrderTracking);
+router.get("/my-order/:orderId", optionalAuthenticate, getMyOrderTracking);
 
 /**
  * @swagger
@@ -153,7 +153,7 @@ router.get("/my-order/:orderId", authenticate, requireRole("user"), getMyOrderTr
  *       200:
  *         description: Berhasil mengambil tracking
  */
-router.get("/:id", authenticate, requireRole("admin"), getOrderTrackingById);
+router.get("/:id", optionalAuthenticate, getOrderTrackingById);
 
 /**
  * @swagger
@@ -191,7 +191,7 @@ router.get("/:id", authenticate, requireRole("admin"), getOrderTrackingById);
  *       200:
  *         description: Tracking berhasil diubah
  */
-router.put("/:id", authenticate, requireRole("admin"), updateOrderTracking);
+router.put("/:id", optionalAuthenticate, updateOrderTracking);
 
 /**
  * @swagger
@@ -210,6 +210,6 @@ router.put("/:id", authenticate, requireRole("admin"), updateOrderTracking);
  *       200:
  *         description: Tracking berhasil dihapus
  */
-router.delete("/:id", authenticate, requireRole("admin"), deleteOrderTracking);
+router.delete("/:id", optionalAuthenticate, deleteOrderTracking);
 
 module.exports = router;

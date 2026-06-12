@@ -10,7 +10,12 @@ const {
 } = require("../utils/mobileContract");
 
 const getOrders = async (req, res) => {
-  let query = supabase.from("orders").select("*");
+  const includeRelations = req.query.include_relations !== "false";
+  const select = includeRelations
+    ? "*, porters(id, nama, no_hp, latitude, longitude), order_tracking(status_perjalanan, waktu_update, catatan), bukti_pengiriman(foto_url, keterangan, jenis_bukti), ratings(id, order_id, nilai, ulasan)"
+    : "*";
+
+  let query = supabase.from("orders").select(select);
 
   if (req.query.unassigned === "true") {
     query = query.is("porter_id", null);
@@ -24,28 +29,52 @@ const getOrders = async (req, res) => {
   if (req.query.status) {
     query = query.eq("status", req.query.status);
   }
+  if (req.query.status_in || req.query.statusIn) {
+    const statuses = String(req.query.status_in || req.query.statusIn)
+      .split(",")
+      .map((status) => status.trim())
+      .filter(Boolean);
+    if (statuses.length > 0) query = query.in("status", statuses);
+  }
+
+  query = query.order("waktu_pesan", { ascending: false });
 
   const { data, error } = await query;
   if (error) return failure(res, 400, "Gagal mengambil orders", error.message);
-  return success(res, "Orders berhasil diambil", data);
+  return success(res, "Orders berhasil diambil", data, 200, { orders: data });
 };
 
 const getAvailableOrders = async (_req, res) => {
   const { data, error } = await supabase
     .from("orders")
-    .select("*")
+    .select("*, users(nama, no_hp)")
     .eq("status", "menunggu")
-    .is("porter_id", null);
+    .is("porter_id", null)
+    .order("waktu_pesan", { ascending: false });
 
   if (error) return failure(res, 400, "Gagal mengambil order tersedia", error.message);
   return success(res, "Order tersedia berhasil diambil", data, 200, { orders: data });
 };
 
+const getActiveTarif = async (_req, res) => {
+  const { data, error } = await supabase
+    .from("tarif")
+    .select("*")
+    .eq("is_aktif", true);
+
+  if (error) return failure(res, 400, "Gagal mengambil tarif aktif", error.message);
+  return success(res, "Tarif aktif berhasil diambil", data || [], 200, { tarif: data || [] });
+};
+
 const getPorterOrders = async (req, res) => {
+  const porterId = req.auth?.id || req.query.porter_id || req.query.porterId;
+  if (!porterId) return failure(res, 400, "porter_id/porterId wajib diisi");
+
   const { data, error } = await supabase
     .from("orders")
-    .select("*")
-    .eq("porter_id", req.auth.id);
+    .select("*, users(nama, no_hp)")
+    .eq("porter_id", porterId)
+    .order("waktu_pesan", { ascending: false });
 
   if (error) return failure(res, 400, "Gagal mengambil order porter", error.message);
   return success(res, "Order porter berhasil diambil", data, 200, { orders: data });
@@ -83,8 +112,10 @@ const getOrderById = async (req, res) => {
 const createOrder = async (req, res) => {
   const payload = mapOrderPayload(req.body);
   payload.status = payload.status || "menunggu";
-  payload.lokasi_jemput = payload.lokasi_jemput || `${payload.lat_jemput},${payload.lng_jemput}`;
-  payload.lokasi_tujuan = payload.lokasi_tujuan || `${payload.lat_tujuan},${payload.lng_tujuan}`;
+  payload.lokasi_jemput =
+    payload.lokasi_jemput || `Lat: ${payload.lat_jemput}, Lng: ${payload.lng_jemput}`;
+  payload.lokasi_tujuan =
+    payload.lokasi_tujuan || `Lat: ${payload.lat_tujuan}, Lng: ${payload.lng_tujuan}`;
 
   if (req.auth?.role === "user") {
     payload.user_id = req.auth.id;
@@ -205,6 +236,9 @@ const updateOrderStatus = async (req, res) => {
   const latitude = toNumber(firstDefined(req.body.latitude, req.body.lat));
   const longitude = toNumber(firstDefined(req.body.longitude, req.body.lng, req.body.lon));
   const catatan = firstDefined(req.body.catatan, req.body.notes, req.body.note);
+  const porterId = req.auth?.role === "porter"
+    ? req.auth.id
+    : firstDefined(req.body.porter_id, req.body.porterId, req.query.porter_id, req.query.porterId);
   let shouldAssignPorter = false;
 
   if (!status) {
@@ -214,7 +248,7 @@ const updateOrderStatus = async (req, res) => {
     return failure(res, 400, `Status order harus salah satu dari: ${ORDER_STATUSES.join(", ")}`);
   }
 
-  if (req.auth?.role === "porter") {
+  if (req.auth?.role === "porter" || porterId) {
     const { data: existing, error: existingError } = await supabase
       .from("orders")
       .select("porter_id, status")
@@ -229,14 +263,14 @@ const updateOrderStatus = async (req, res) => {
     }
 
     if (status === "diterima") {
-      if (existing.porter_id && existing.porter_id !== req.auth.id) {
+      if (existing.porter_id && existing.porter_id !== porterId) {
         return failure(res, 403, "Order sudah diambil porter lain");
       }
       if (!existing.porter_id && existing.status !== "menunggu") {
         return failure(res, 403, "Order hanya bisa diterima saat masih menunggu");
       }
       shouldAssignPorter = !existing.porter_id;
-    } else if (existing.porter_id !== req.auth.id) {
+    } else if (existing.porter_id && porterId && existing.porter_id !== porterId) {
       return failure(res, 403, "Porter hanya bisa update order miliknya");
     }
   }
@@ -244,7 +278,8 @@ const updateOrderStatus = async (req, res) => {
   const updateData = { status };
 
   if (shouldAssignPorter) {
-    updateData.porter_id = req.auth.id;
+    if (!porterId) return failure(res, 400, "porter_id/porterId wajib diisi untuk menerima order");
+    updateData.porter_id = porterId;
   }
 
   if (status === "selesai") {
@@ -312,8 +347,12 @@ const getOrderPorterContact = async (req, res) => {
 };
 
 const cancelOrder = async (req, res) => {
-  if (req.auth?.role === "user") {
-    const { id } = req.params;
+  const { id } = req.params;
+  const userId = req.auth?.role === "user"
+    ? req.auth.id
+    : firstDefined(req.body.user_id, req.body.userId, req.query.user_id, req.query.userId);
+
+  if (req.auth?.role === "user" || userId) {
     const { data: existing, error: existingError } = await supabase
       .from("orders")
       .select("user_id, status")
@@ -323,7 +362,7 @@ const cancelOrder = async (req, res) => {
     if (existingError || !existing) {
       return failure(res, 404, "Order tidak ditemukan", existingError?.message);
     }
-    if (existing.user_id !== req.auth.id) {
+    if (existing.user_id !== userId) {
       return failure(res, 403, "User hanya bisa membatalkan order miliknya");
     }
     if (!["menunggu", "diterima"].includes(existing.status)) {
@@ -361,6 +400,7 @@ const deleteOrder = async (req, res) => {
 };
 
 module.exports = {
+  getActiveTarif,
   getOrders,
   getAvailableOrders,
   getPorterOrders,

@@ -57,6 +57,7 @@ async function createPayment(req, res) {
   try {
     const body = req.body || {};
     const order_id = firstDefined(body.order_id, body.orderId);
+    const amount = firstDefined(body.amount, body.total_biaya, body.totalBiaya);
     const user_name = firstDefined(body.user_name, body.userName, body.name);
     const user_email = firstDefined(body.user_email, body.userEmail, body.email);
 
@@ -88,7 +89,11 @@ async function createPayment(req, res) {
       });
     }
 
-    let finalAmount = Number(order.total_biaya);
+    let finalAmount = Number(firstDefined(order.total_biaya, amount));
+
+    if (Number.isNaN(finalAmount) || finalAmount <= 0) {
+      finalAmount = Number(amount);
+    }
 
     if (Number.isNaN(finalAmount) || finalAmount <= 0) {
       return res.status(400).json({

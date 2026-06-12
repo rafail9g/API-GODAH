@@ -33,6 +33,31 @@ CREATE UNIQUE INDEX IF NOT EXISTS bukti_pengiriman_order_jenis_key
 ALTER TABLE public.porters
   ADD COLUMN IF NOT EXISTS password_hash VARCHAR(255);
 
+-- Flutter FCM service menyimpan token di users, porters, dan admins.
+ALTER TABLE public.users
+  ADD COLUMN IF NOT EXISTS fcm_token TEXT,
+  ADD COLUMN IF NOT EXISTS fcm_token_updated_at TIMESTAMP WITH TIME ZONE;
+
+ALTER TABLE public.porters
+  ADD COLUMN IF NOT EXISTS fcm_token TEXT,
+  ADD COLUMN IF NOT EXISTS fcm_token_updated_at TIMESTAMP WITH TIME ZONE;
+
+ALTER TABLE public.admins
+  ADD COLUMN IF NOT EXISTS fcm_token TEXT,
+  ADD COLUMN IF NOT EXISTS fcm_token_updated_at TIMESTAMP WITH TIME ZONE;
+
+CREATE INDEX IF NOT EXISTS idx_users_fcm_token
+  ON public.users(fcm_token)
+  WHERE fcm_token IS NOT NULL;
+
+CREATE INDEX IF NOT EXISTS idx_porters_fcm_token
+  ON public.porters(fcm_token)
+  WHERE fcm_token IS NOT NULL;
+
+CREATE INDEX IF NOT EXISTS idx_admins_fcm_token
+  ON public.admins(fcm_token)
+  WHERE fcm_token IS NOT NULL;
+
 -- Status operasional porter untuk tindakan admin.
 -- Dipisah dari status_verifikasi karena verifikasi hanya untuk proses approve akun.
 DO $$

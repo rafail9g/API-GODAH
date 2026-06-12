@@ -3,6 +3,7 @@ const router = express.Router();
 
 const {
   getOrders,
+  getActiveTarif,
   getAvailableOrders,
   getPorterOrders,
   getOrderById,
@@ -13,7 +14,7 @@ const {
   cancelOrder,
   deleteOrder
 } = require("../controllers/orderController");
-const { authenticate, requireRole } = require("../Middleware/middleware");
+const { authenticate, optionalAuthenticate, requireRole } = require("../Middleware/middleware");
 
 /**
  * @swagger
@@ -32,8 +33,8 @@ const { authenticate, requireRole } = require("../Middleware/middleware");
  *       200:
  *         description: Berhasil mengambil semua order
  */
-router.get("/my", authenticate, requireRole("user"), (req, res) => {
-  req.query.user_id = req.auth.id;
+router.get("/my", optionalAuthenticate, (req, res) => {
+  req.query.user_id = req.auth?.id || req.query.user_id || req.query.userId;
   return getOrders(req, res);
 });
 
@@ -54,7 +55,9 @@ router.get("/my", authenticate, requireRole("user"), (req, res) => {
  *               message: Order tersedia berhasil diambil
  *               data: []
  */
-router.get("/available", authenticate, requireRole("porter"), getAvailableOrders);
+router.get("/available", optionalAuthenticate, getAvailableOrders);
+
+router.get("/tarif/active", optionalAuthenticate, getActiveTarif);
 
 /**
  * @swagger
@@ -72,7 +75,7 @@ router.get("/available", authenticate, requireRole("porter"), getAvailableOrders
  *               message: Order porter berhasil diambil
  *               data: []
  */
-router.get("/porter/my", authenticate, requireRole("porter"), getPorterOrders);
+router.get("/porter/my", optionalAuthenticate, getPorterOrders);
 
 router.get("/", authenticate, requireRole("admin"), getOrders);
 
@@ -136,7 +139,7 @@ router.get("/", authenticate, requireRole("admin"), getOrders);
  *       201:
  *         description: Order berhasil dibuat
  */
-router.post("/", authenticate, requireRole("user", "admin"), createOrder);
+router.post("/", optionalAuthenticate, createOrder);
 
 /**
  * @swagger
@@ -189,7 +192,7 @@ router.post("/", authenticate, requireRole("user", "admin"), createOrder);
  *                 status: diterima
  *                 porter_id: porter-login-id
  */
-router.put("/:id/status", authenticate, requireRole("porter", "admin"), updateOrderStatus);
+router.put("/:id/status", optionalAuthenticate, updateOrderStatus);
 
 /**
  * @swagger
@@ -218,7 +221,7 @@ router.put("/:id/status", authenticate, requireRole("porter", "admin"), updateOr
  *       200:
  *         description: Order dibatalkan
  */
-router.put("/:id/cancel", authenticate, requireRole("user", "admin"), cancelOrder);
+router.put("/:id/cancel", optionalAuthenticate, cancelOrder);
 
 /**
  * @swagger
@@ -234,7 +237,7 @@ router.put("/:id/cancel", authenticate, requireRole("user", "admin"), cancelOrde
  *           type: string
  *         description: ID order
  */
-router.get("/:id/porter-contact", authenticate, requireRole("user", "admin"), getOrderPorterContact);
+router.get("/:id/porter-contact", optionalAuthenticate, getOrderPorterContact);
 
 /**
  * @swagger
@@ -253,7 +256,7 @@ router.get("/:id/porter-contact", authenticate, requireRole("user", "admin"), ge
  *       200:
  *         description: Berhasil mengambil order
  */
-router.get("/:id", authenticate, getOrderById);
+router.get("/:id", optionalAuthenticate, getOrderById);
 
 /**
  * @swagger

@@ -95,6 +95,15 @@ const authenticate = async (req, res, next) => {
   return next();
 };
 
+const optionalAuthenticate = async (req, res, next) => {
+  const rawHeader = req.headers.authorization || "";
+  const token = rawHeader.startsWith("Bearer ") ? rawHeader.slice(7).trim() : null;
+
+  if (!token) return next();
+
+  return authenticate(req, res, next);
+};
+
 const requireRole = (...roles) => (req, res, next) => {
   if (!req.auth) {
     return res.status(401).json({
@@ -145,6 +154,7 @@ const errorHandler = (err, req, res, _next) => {
 module.exports = {
   requestLogger,
   authenticate,
+  optionalAuthenticate,
   requireRole,
   notFound,
   errorHandler,

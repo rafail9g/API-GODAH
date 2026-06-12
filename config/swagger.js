@@ -24,6 +24,9 @@ const options = {
     ],
     servers: [
       {
+        url: "https://api-godah-production.up.railway.app"
+      },
+      {
         url: "http://localhost:3000"
       }
     ]

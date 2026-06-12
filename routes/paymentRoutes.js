@@ -9,7 +9,7 @@ const {
   checkPaymentStatus,
   markPaymentPaidManual
 } = require("../controllers/paymentController");
-const { authenticate, requireRole } = require("../Middleware/middleware");
+const { authenticate, optionalAuthenticate, requireRole } = require("../Middleware/middleware");
 
 /**
  * @swagger
@@ -61,7 +61,7 @@ const { authenticate, requireRole } = require("../Middleware/middleware");
  *       500:
  *         description: Gagal membuat transaksi Midtrans
  */
-router.post("/create", authenticate, requireRole("user", "admin"), createPayment);
+router.post("/create", optionalAuthenticate, createPayment);
 
 /**
  * @swagger
@@ -102,7 +102,7 @@ router.post("/notification", handleNotification);
  *       500:
  *         description: Gagal cek status payment
  */
-router.post("/check-status", authenticate, requireRole("user", "admin"), checkPaymentStatus);
+router.post("/check-status", optionalAuthenticate, checkPaymentStatus);
 
 /**
  * @swagger
@@ -136,7 +136,7 @@ router.post("/check-status", authenticate, requireRole("user", "admin"), checkPa
  *       500:
  *         description: Gagal update payment manual
  */
-router.post("/mark-paid-manual", authenticate, requireRole("user", "admin"), markPaymentPaidManual);
+router.post("/mark-paid-manual", optionalAuthenticate, markPaymentPaidManual);
 
 /**
  * @swagger
@@ -160,7 +160,7 @@ router.post("/mark-paid-manual", authenticate, requireRole("user", "admin"), mar
  *       500:
  *         description: Gagal mengambil payment berdasarkan order_id
  */
-router.get("/order/:order_id", authenticate, requireRole("user", "admin"), getPaymentByOrderId);
+router.get("/order/:order_id", optionalAuthenticate, getPaymentByOrderId);
 
 /**
  * @swagger

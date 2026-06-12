@@ -7,7 +7,7 @@ const {
   getProofByOrderId,
   getMyProofs
 } = require("../controllers/buktiPengirimanController");
-const { authenticate, requireRole } = require("../Middleware/middleware");
+const { optionalAuthenticate } = require("../Middleware/middleware");
 
 /**
  * @swagger
@@ -57,7 +57,7 @@ const { authenticate, requireRole } = require("../Middleware/middleware");
  *               success: true
  *               message: Bukti pickup berhasil diupload
  */
-router.post("/orders/:id/proof-pickup", authenticate, requireRole("porter"), uploadPickupProof);
+router.post("/orders/:id/proof-pickup", optionalAuthenticate, uploadPickupProof);
 
 /**
  * @swagger
@@ -100,7 +100,7 @@ router.post("/orders/:id/proof-pickup", authenticate, requireRole("porter"), upl
  *               success: true
  *               message: Bukti delivery berhasil diupload
  */
-router.post("/orders/:id/proof-delivery", authenticate, requireRole("porter"), uploadDeliveryProof);
+router.post("/orders/:id/proof-delivery", optionalAuthenticate, uploadDeliveryProof);
 
 /**
  * @swagger
@@ -124,7 +124,7 @@ router.post("/orders/:id/proof-delivery", authenticate, requireRole("porter"), u
  *                     - jenis_bukti: pickup
  *                     - jenis_bukti: delivery
  */
-router.get("/bukti-pengiriman/my", authenticate, requireRole("user", "porter"), getMyProofs);
+router.get("/bukti-pengiriman/my", optionalAuthenticate, getMyProofs);
 
 /**
  * @swagger
@@ -154,6 +154,6 @@ router.get("/bukti-pengiriman/my", authenticate, requireRole("user", "porter"), 
  *       404:
  *         description: Order tidak ditemukan
  */
-router.get("/bukti-pengiriman/order/:orderId", authenticate, getProofByOrderId);
+router.get("/bukti-pengiriman/order/:orderId", optionalAuthenticate, getProofByOrderId);
 
 module.exports = router;

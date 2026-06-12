@@ -1,7 +1,13 @@
 const express = require("express");
 const router = express.Router();
 
-const { login, me, register } = require("../controllers/authController");
+const {
+  completeGoogleProfile,
+  googleLogin,
+  login,
+  me,
+  register,
+} = require("../controllers/authController");
 const { authenticate } = require("../Middleware/middleware");
 
 /**
@@ -71,6 +77,26 @@ router.post("/register", register);
  *         description: Login berhasil, backend otomatis mendeteksi role dan field token bisa dipakai di Swagger Authorize
  */
 router.post("/login", login);
+
+/**
+ * @swagger
+ * /auth/google:
+ *   post:
+ *     summary: Login Google menggunakan ID token dari Flutter
+ *     tags: [Auth]
+ *     security: []
+ */
+router.post("/google", googleLogin);
+
+/**
+ * @swagger
+ * /auth/google/complete-profile:
+ *   post:
+ *     summary: Lengkapi role dan profil setelah Google Sign-In
+ *     tags: [Auth]
+ *     security: []
+ */
+router.post("/google/complete-profile", completeGoogleProfile);
 
 /**
  * @swagger

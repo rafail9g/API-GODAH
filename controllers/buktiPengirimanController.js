@@ -220,7 +220,7 @@ const getProofByOrderId = async (req, res) => {
 
   order = orderData;
 
-  if (req.auth?.role !== "admin") {
+  if (req.auth && req.auth.role !== "admin") {
     if (
       (req.auth.role === "user" && order.user_id !== req.auth.id) ||
       (req.auth.role === "porter" && order.porter_id !== req.auth.id)
@@ -243,12 +243,20 @@ const getProofByOrderId = async (req, res) => {
 };
 
 const getMyProofs = async (req, res) => {
+  if (!req.auth && !req.query.user_id && !req.query.userId && !req.query.porter_id && !req.query.porterId) {
+    return failure(res, 400, "Token atau user_id/porter_id wajib diisi");
+  }
+
   let ordersQuery = supabase.from("orders").select("id, user_id, porter_id, status");
 
-  if (req.auth.role === "user") {
+  if (req.auth?.role === "user") {
     ordersQuery = ordersQuery.eq("user_id", req.auth.id);
-  } else if (req.auth.role === "porter") {
+  } else if (req.auth?.role === "porter") {
     ordersQuery = ordersQuery.eq("porter_id", req.auth.id);
+  } else if (req.query.user_id || req.query.userId) {
+    ordersQuery = ordersQuery.eq("user_id", req.query.user_id || req.query.userId);
+  } else if (req.query.porter_id || req.query.porterId) {
+    ordersQuery = ordersQuery.eq("porter_id", req.query.porter_id || req.query.porterId);
   }
 
   const { data: orders, error: ordersError } = await ordersQuery;

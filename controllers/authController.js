@@ -7,6 +7,80 @@ function isRestrictedPorter(account) {
   return ["nonaktif", "diblokir"].includes(account?.status);
 }
 
+function profilePayloadForRole(role, authUser, body = {}) {
+  const name =
+    body.nama ||
+    body.name ||
+    body.fullName ||
+    authUser?.user_metadata?.nama ||
+    authUser?.user_metadata?.name ||
+    authUser?.email?.split("@")[0] ||
+    (role === "porter" ? "Porter GoDah" : "User GoDah");
+
+  const phone =
+    body.no_hp ||
+    body.noHp ||
+    body.phone ||
+    body.phoneNumber ||
+    authUser?.user_metadata?.no_hp ||
+    authUser?.phone;
+
+  const basePayload = {
+    id: authUser.id,
+    nama: name,
+    email: authUser.email,
+    no_hp: phone,
+    password_hash: "google_oauth",
+  };
+
+  if (role === "porter") {
+    return {
+      ...basePayload,
+      status_verifikasi: "menunggu",
+      status: "aktif",
+      is_aktif: false,
+      total_selesai: 0,
+    };
+  }
+
+  return {
+    ...basePayload,
+    alamat: body.alamat || body.address || null,
+    status: "aktif",
+  };
+}
+
+async function findProfileByUserId(userId) {
+  const candidates = [
+    { table: "users", role: "user" },
+    { table: "porters", role: "porter" },
+    { table: "admins", role: "admin" },
+  ];
+
+  for (const candidate of candidates) {
+    const { data } = await supabase
+      .from(candidate.table)
+      .select("*")
+      .eq("id", userId)
+      .maybeSingle();
+
+    if (data) return { account: data, role: candidate.role };
+  }
+
+  return null;
+}
+
+function authResponse(res, message, account, role, statusCode = 200, extra = {}) {
+  const token = signToken({ id: account.id, role });
+
+  return success(res, message, account, statusCode, {
+    [role]: account,
+    role,
+    token,
+    ...extra,
+  });
+}
+
 async function register(req, res) {
   try {
     const payload = mapUserPayload(req.body);
@@ -36,8 +110,30 @@ async function register(req, res) {
       return failure(res, 409, "Email sudah terdaftar");
     }
 
+    const { data: authData, error: authError } = await supabase.auth.signUp({
+      email: payload.email,
+      password: payload.password_hash,
+      options: {
+        data: {
+          role,
+          nama: payload.nama,
+          no_hp: payload.no_hp,
+        },
+      },
+    });
+
+    if (authError || !authData?.user) {
+      return failure(
+        res,
+        400,
+        "Gagal membuat akun Supabase Auth",
+        authError?.message
+      );
+    }
+
     const insertPayload = role === "porter"
       ? {
+          id: authData.user.id,
           nama: payload.nama,
           email: payload.email,
           password_hash: hashPassword(payload.password_hash),
@@ -48,6 +144,7 @@ async function register(req, res) {
           total_selesai: 0,
         }
       : {
+          id: authData.user.id,
           ...payload,
           password_hash: hashPassword(payload.password_hash),
           status: payload.status || "aktif",
@@ -81,12 +178,7 @@ async function register(req, res) {
       return failure(res, 400, "Gagal membuat akun", error.message || JSON.stringify(error));
     }
 
-    const token = signToken({
-      id: data.id,
-      role,
-    });
-
-    return success(res, "Register berhasil", data, 201, { [role]: data, role, token });
+    return authResponse(res, "Register berhasil", data, role, 201);
   } catch (error) {
     console.error("[REGISTER] Error tidak terduga:", error);
     return failure(res, 500, "Register error di server", error.message);
@@ -204,19 +296,11 @@ async function login(req, res) {
         accountRole = roleFromMetadata;
       }
 
-      const token = signToken({
-        id: account.id,
-        role: accountRole,
-      });
-
       if (accountRole === "porter" && isRestrictedPorter(account)) {
         return failure(res, 403, `Akun porter sedang ${account.status}. Hubungi admin.`);
       }
 
-      return success(res, "Login Supabase berhasil", account, 200, {
-        [accountRole]: account,
-        role: accountRole,
-        token,
+      return authResponse(res, "Login Supabase berhasil", account, accountRole, 200, {
         supabase_access_token: authData.session?.access_token,
       });
     }
@@ -228,16 +312,116 @@ async function login(req, res) {
     return failure(res, 403, `Akun porter sedang ${account.status}. Hubungi admin.`);
   }
 
-  const token = signToken({
-    id: account.id,
-    role: accountRole,
-  });
+  return authResponse(res, "Login berhasil", account, accountRole);
+}
 
-  return success(res, "Login berhasil", account, 200, {
-    [accountRole]: account,
-    role: accountRole,
-    token,
-  });
+async function googleLogin(req, res) {
+  try {
+    const body = req.body || {};
+    const idToken = body.id_token || body.idToken || body.token;
+
+    if (!idToken) {
+      return failure(res, 400, "id_token/idToken Google wajib diisi");
+    }
+
+    const { data: authData, error: authError } = await supabase.auth.signInWithIdToken({
+      provider: "google",
+      token: idToken,
+      access_token: body.access_token || body.accessToken,
+    });
+
+    if (authError || !authData?.user) {
+      return failure(res, 401, "Login Google gagal", authError?.message);
+    }
+
+    const existingProfile = await findProfileByUserId(authData.user.id);
+    if (existingProfile) {
+      return authResponse(
+        res,
+        "Login Google berhasil",
+        existingProfile.account,
+        existingProfile.role,
+        200,
+        {
+          needs_role_selection: false,
+          supabase_access_token: authData.session?.access_token,
+          supabase_refresh_token: authData.session?.refresh_token,
+        }
+      );
+    }
+
+    return success(res, "Login Google berhasil, pilih role dulu", null, 200, {
+      needs_role_selection: true,
+      supabase_user: {
+        id: authData.user.id,
+        email: authData.user.email,
+        nama: authData.user.user_metadata?.name || authData.user.email?.split("@")[0],
+      },
+      supabase_access_token: authData.session?.access_token,
+      supabase_refresh_token: authData.session?.refresh_token,
+    });
+  } catch (error) {
+    console.error("[GOOGLE LOGIN] Error:", error);
+    return failure(res, 500, "Login Google error di server", error.message);
+  }
+}
+
+async function completeGoogleProfile(req, res) {
+  try {
+    const rawHeader = req.headers.authorization || "";
+    const accessToken = rawHeader.startsWith("Bearer ")
+      ? rawHeader.slice(7).trim()
+      : req.body?.supabase_access_token || req.body?.supabaseAccessToken;
+
+    if (!accessToken) {
+      return failure(res, 401, "Supabase access token wajib diisi");
+    }
+
+    const { data: authData, error: authError } = await supabase.auth.getUser(accessToken);
+    if (authError || !authData?.user) {
+      return failure(res, 401, "Supabase access token tidak valid", authError?.message);
+    }
+
+    const role = req.body?.role;
+    if (!["user", "porter"].includes(role)) {
+      return failure(res, 400, "role wajib user atau porter");
+    }
+
+    if (!req.body?.nama && !req.body?.name && !authData.user.user_metadata?.name) {
+      return failure(res, 400, "nama/name wajib diisi");
+    }
+
+    if (!req.body?.no_hp && !req.body?.noHp && !req.body?.phone && !authData.user.phone) {
+      return failure(res, 400, "no_hp/phone wajib diisi");
+    }
+
+    const existingProfile = await findProfileByUserId(authData.user.id);
+    if (existingProfile && existingProfile.role !== role) {
+      return failure(
+        res,
+        409,
+        `Akun Google ini sudah terdaftar sebagai ${existingProfile.role}`
+      );
+    }
+
+    const table = role === "porter" ? "porters" : "users";
+    const payload = profilePayloadForRole(role, authData.user, req.body);
+
+    const { data: profile, error: profileError } = await supabase
+      .from(table)
+      .upsert(payload, { onConflict: "id" })
+      .select()
+      .single();
+
+    if (profileError) {
+      return failure(res, 400, "Gagal melengkapi profil Google", profileError.message);
+    }
+
+    return authResponse(res, "Profil Google berhasil dilengkapi", profile, role);
+  } catch (error) {
+    console.error("[GOOGLE COMPLETE] Error:", error);
+    return failure(res, 500, "Complete Google profile error di server", error.message);
+  }
 }
 
 async function me(req, res) {
@@ -270,6 +454,8 @@ async function me(req, res) {
 }
 
 module.exports = {
+  completeGoogleProfile,
+  googleLogin,
   login,
   me,
   register,

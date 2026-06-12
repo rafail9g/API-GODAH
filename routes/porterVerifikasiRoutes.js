@@ -8,7 +8,7 @@ const {
   submitVerification,
   reviewVerification,
 } = require("../controllers/porterVerifikasiController");
-const { authenticate, requireRole } = require("../Middleware/middleware");
+const { optionalAuthenticate } = require("../Middleware/middleware");
 
 /**
  * @swagger
@@ -24,7 +24,7 @@ const { authenticate, requireRole } = require("../Middleware/middleware");
  *     summary: Mengambil verifikasi porter sendiri (Porter)
  *     tags: [Porter Verifikasi]
  */
-router.get("/me", authenticate, requireRole("porter"), getMyVerification);
+router.get("/me", optionalAuthenticate, getMyVerification);
 
 /**
  * @swagger
@@ -47,7 +47,7 @@ router.get("/me", authenticate, requireRole("porter"), getMyVerification);
  *       201:
  *         description: Verifikasi porter berhasil disubmit
  */
-router.post("/", authenticate, requireRole("porter"), submitVerification);
+router.post("/", optionalAuthenticate, submitVerification);
 
 /**
  * @swagger
@@ -56,7 +56,7 @@ router.post("/", authenticate, requireRole("porter"), submitVerification);
  *     summary: Mengambil semua verifikasi porter (Admin)
  *     tags: [Porter Verifikasi]
  */
-router.get("/", authenticate, requireRole("admin"), getVerifications);
+router.get("/", optionalAuthenticate, getVerifications);
 
 /**
  * @swagger
@@ -71,7 +71,7 @@ router.get("/", authenticate, requireRole("admin"), getVerifications);
  *         schema:
  *           type: string
  */
-router.get("/:id", authenticate, requireRole("admin"), getVerificationById);
+router.get("/:id", optionalAuthenticate, getVerificationById);
 
 /**
  * @swagger
@@ -101,6 +101,6 @@ router.get("/:id", authenticate, requireRole("admin"), getVerificationById);
  *               catatan_admin:
  *                 type: string
  */
-router.put("/:id/review", authenticate, requireRole("admin"), reviewVerification);
+router.put("/:id/review", optionalAuthenticate, reviewVerification);
 
 module.exports = router;

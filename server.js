@@ -12,6 +12,8 @@ const buktiPengirimanRoutes = require("./routes/buktiPengirimanRoutes");
 const paymentRoutes = require("./routes/paymentRoutes");
 const ratingsRoutes = require("./routes/ratingsRoutes");
 const porterVerifikasiRoutes = require("./routes/porterVerifikasiRoutes");
+const tarifRoutes = require("./routes/tarifRoutes");
+const notificationRoutes = require("./routes/notificationRoutes");
 const { errorHandler, notFound, requestLogger } = require("./Middleware/middleware");
 
 const swaggerUi = require("swagger-ui-express");
@@ -35,6 +37,8 @@ app.get("/", (req, res) => {
       orders: "/orders atau /api/orders",
       payments: "/payments atau /api/payments",
       ratings: "/ratings atau /api/ratings",
+      notifications: "/notifications atau /api/notifications",
+      tarif: "/tarif atau /api/tarif",
       docs: "/api-docs",
     },
   });
@@ -49,6 +53,8 @@ app.use("/orders", orderRoutes);
 app.use("/order-tracking", orderTrackingRoutes);
 app.use("/payments", paymentRoutes);
 app.use("/ratings", ratingsRoutes);
+app.use("/notifications", notificationRoutes);
+app.use("/tarif", tarifRoutes);
 app.use("/", buktiPengirimanRoutes);
 
 app.use("/api/auth", authRoutes);
@@ -60,6 +66,8 @@ app.use("/api/orders", orderRoutes);
 app.use("/api/order-tracking", orderTrackingRoutes);
 app.use("/api/payments", paymentRoutes);
 app.use("/api/ratings", ratingsRoutes);
+app.use("/api/notifications", notificationRoutes);
+app.use("/api/tarif", tarifRoutes);
 app.use("/api", buktiPengirimanRoutes);
 
 app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerSpec));
