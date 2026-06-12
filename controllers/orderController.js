@@ -165,13 +165,17 @@ const updateOrder = async (req, res) => {
 
   if (req.auth?.role === "admin") {
     const allowedAdminFields = [
+      "lokasi_jemput",
+      "lokasi_tujuan",
       "lat_jemput",
       "lng_jemput",
       "lat_tujuan",
       "lng_tujuan",
       "jenis_layanan",
       "tarif_id",
+      "status",
       "total_biaya",
+      "catatan",
     ];
     const adminPayload = Object.fromEntries(
       Object.entries(payload).filter(([key]) => allowedAdminFields.includes(key))
@@ -181,8 +185,16 @@ const updateOrder = async (req, res) => {
       return failure(
         res,
         400,
-        "Admin hanya bisa update koordinat jemput/tujuan, jenis layanan, tarif, dan total biaya order"
+        "Admin hanya bisa update lokasi, koordinat, status, catatan, jenis layanan, tarif, dan total biaya order"
       );
+    }
+
+    if (adminPayload.status && !isAllowed(adminPayload.status, ORDER_STATUSES)) {
+      return failure(res, 400, `Status order harus salah satu dari: ${ORDER_STATUSES.join(", ")}`);
+    }
+
+    if (adminPayload.status === "selesai") {
+      adminPayload.waktu_selesai = new Date().toISOString();
     }
 
     const { data, error } = await supabase
@@ -193,6 +205,22 @@ const updateOrder = async (req, res) => {
       .single();
 
     if (error) return failure(res, 400, "Gagal update order", error.message);
+
+    if (adminPayload.status) {
+      const latitude = toNumber(firstDefined(req.body.latitude, req.body.lat, req.body.lat_tujuan));
+      const longitude = toNumber(firstDefined(req.body.longitude, req.body.lng, req.body.lon, req.body.lng_tujuan));
+
+      await supabase.from("order_tracking").insert([
+        {
+          order_id: id,
+          status_perjalanan: adminPayload.status,
+          latitude,
+          longitude,
+          catatan: adminPayload.catatan || "Status order diubah admin",
+        }
+      ]);
+    }
+
     return success(res, "Order berhasil diupdate", data, 200, { order: data });
   }
 

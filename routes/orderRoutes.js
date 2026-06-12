@@ -276,14 +276,23 @@ router.get("/:id", optionalAuthenticate, getOrderById);
  *       content:
  *         application/json:
  *           example:
+ *             lokasi_tujuan: Gedung Fakultas Teknik
  *             lat_jemput: -8.163265
  *             lng_jemput: 113.721647
  *             lat_tujuan: -8.170001
  *             lng_tujuan: 113.715001
+ *             status: menunggu
+ *             catatan: Tujuan diperbarui admin
  *             jenis_layanan: terjadwal
  *           schema:
  *             type: object
  *             properties:
+ *               lokasi_jemput:
+ *                 type: string
+ *                 example: Gerbang Kampus
+ *               lokasi_tujuan:
+ *                 type: string
+ *                 example: Gedung Fakultas Teknik
  *               lat_jemput:
  *                 type: number
  *                 example: -8.163265
@@ -300,12 +309,19 @@ router.get("/:id", optionalAuthenticate, getOrderById);
  *                 type: string
  *                 enum: [instant, terjadwal, semua]
  *                 example: terjadwal
+ *               status:
+ *                 type: string
+ *                 enum: [menunggu, diterima, menuju_lokasi, dalam_perjalanan, sampai_tujuan, selesai, batal]
+ *                 example: menunggu
  *               tarif_id:
  *                 type: string
  *                 nullable: true
  *               total_biaya:
  *                 type: number
  *                 example: 15000
+ *               catatan:
+ *                 type: string
+ *                 example: Tujuan diperbarui admin
  *     responses:
  *       200:
  *         description: Order berhasil diubah
