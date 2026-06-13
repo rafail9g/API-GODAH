@@ -3,7 +3,7 @@ const { signToken, verifyToken } = require("../utils/authToken");
 const { failure, mapUserPayload, success } = require("../utils/mobileContract");
 const { hashPassword, passwordMatches } = require("../utils/passwordHash");
 
-function isRestrictedPorter(account) {
+function isRestrictedAccount(account) {
   return ["nonaktif", "diblokir"].includes(account?.status);
 }
 
@@ -296,8 +296,8 @@ async function login(req, res) {
         accountRole = roleFromMetadata;
       }
 
-      if (accountRole === "porter" && isRestrictedPorter(account)) {
-        return failure(res, 403, `Akun porter sedang ${account.status}. Hubungi admin.`);
+      if (["user", "porter"].includes(accountRole) && isRestrictedAccount(account)) {
+        return failure(res, 403, `Akun ${accountRole} sedang ${account.status}. Hubungi admin.`);
       }
 
       return authResponse(res, "Login Supabase berhasil", account, accountRole, 200, {
@@ -308,8 +308,8 @@ async function login(req, res) {
     return failure(res, 401, "Email atau password salah", authError?.message);
   }
 
-  if (accountRole === "porter" && isRestrictedPorter(account)) {
-    return failure(res, 403, `Akun porter sedang ${account.status}. Hubungi admin.`);
+  if (["user", "porter"].includes(accountRole) && isRestrictedAccount(account)) {
+    return failure(res, 403, `Akun ${accountRole} sedang ${account.status}. Hubungi admin.`);
   }
 
   return authResponse(res, "Login berhasil", account, accountRole);
@@ -336,6 +336,17 @@ async function googleLogin(req, res) {
 
     const existingProfile = await findProfileByUserId(authData.user.id);
     if (existingProfile) {
+      if (
+        ["user", "porter"].includes(existingProfile.role) &&
+        isRestrictedAccount(existingProfile.account)
+      ) {
+        return failure(
+          res,
+          403,
+          `Akun ${existingProfile.role} sedang ${existingProfile.account.status}. Hubungi admin.`
+        );
+      }
+
       return authResponse(
         res,
         "Login Google berhasil",
@@ -401,6 +412,22 @@ async function completeGoogleProfile(req, res) {
         res,
         409,
         `Akun Google ini sudah terdaftar sebagai ${existingProfile.role}`
+      );
+    }
+    if (existingProfile) {
+      if (isRestrictedAccount(existingProfile.account)) {
+        return failure(
+          res,
+          403,
+          `Akun ${existingProfile.role} sedang ${existingProfile.account.status}. Hubungi admin.`
+        );
+      }
+
+      return authResponse(
+        res,
+        "Profil Google sudah lengkap",
+        existingProfile.account,
+        existingProfile.role
       );
     }
 

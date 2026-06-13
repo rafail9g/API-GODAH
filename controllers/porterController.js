@@ -1,7 +1,6 @@
 const supabase = require("../config/supabase");
 const {
   PORTER_STATUSES,
-  PORTER_VERIFICATION_STATUSES,
   failure,
   firstDefined,
   isAllowed,
@@ -16,7 +15,7 @@ const getPorters = async (req, res) => {
   let query = supabase.from("porters").select(PORTER_SAFE_SELECT);
 
   if (req.query.available === "true") {
-    query = query.eq("is_aktif", true);
+    query = query.eq("status", "aktif").eq("is_aktif", true);
   }
   if (req.query.status) {
     query = query.eq("status", req.query.status);
@@ -102,23 +101,19 @@ const updatePorter = async (req, res) => {
           `Status porter harus salah satu dari: ${PORTER_STATUSES.join(", ")}`
         );
       }
-    }
-    if (req.body.status_verifikasi !== undefined || req.body.verificationStatus !== undefined) {
-      payload.status_verifikasi = mapPorterPayload(req.body).status_verifikasi;
-      if (!isAllowed(payload.status_verifikasi, PORTER_VERIFICATION_STATUSES)) {
-        return failure(
-          res,
-          400,
-          `Status verifikasi porter harus salah satu dari: ${PORTER_VERIFICATION_STATUSES.join(", ")}`
-        );
+      if (["nonaktif", "diblokir"].includes(payload.status)) {
+        payload.is_aktif = false;
       }
     }
+    if (req.body.status_verifikasi !== undefined || req.body.verificationStatus !== undefined) {
+      return failure(res, 400, "Admin hanya bisa update status akun porter");
+    }
     if (req.body.is_aktif !== undefined || req.body.isActive !== undefined || req.body.active !== undefined) {
-      payload.is_aktif = mapPorterPayload(req.body).is_aktif;
+      return failure(res, 400, "Admin hanya bisa update status akun porter");
     }
 
     if (Object.keys(payload).length === 0) {
-      return failure(res, 400, "Admin hanya bisa update status, status_verifikasi, dan/atau is_aktif porter");
+      return failure(res, 400, "Admin hanya bisa update status akun porter");
     }
   }
 
@@ -170,6 +165,9 @@ const updatePorterOnlineStatus = async (req, res) => {
   const payload = mapPorterPayload(req.body);
   if (payload.is_aktif === undefined) {
     return failure(res, 400, "is_aktif/isActive wajib diisi");
+  }
+  if (payload.is_aktif === true && req.auth.profile?.status !== "aktif") {
+    return failure(res, 403, "Akun porter harus aktif untuk menyalakan status online");
   }
 
   const { data, error } = await supabase

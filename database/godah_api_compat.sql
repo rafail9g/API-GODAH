@@ -58,6 +58,22 @@ CREATE INDEX IF NOT EXISTS idx_admins_fcm_token
   ON public.admins(fcm_token)
   WHERE fcm_token IS NOT NULL;
 
+-- Status akun user untuk tindakan admin.
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'user_status') THEN
+    CREATE TYPE public.user_status AS ENUM ('aktif', 'nonaktif', 'diblokir');
+  END IF;
+END $$;
+
+ALTER TABLE public.users
+  ADD COLUMN IF NOT EXISTS status public.user_status NOT NULL DEFAULT 'aktif';
+
+ALTER TABLE public.users
+  ALTER COLUMN status DROP DEFAULT,
+  ALTER COLUMN status TYPE public.user_status USING status::text::public.user_status,
+  ALTER COLUMN status SET DEFAULT 'aktif';
+
 -- Status operasional porter untuk tindakan admin.
 -- Dipisah dari status_verifikasi karena verifikasi hanya untuk proses approve akun.
 DO $$

@@ -7,6 +7,8 @@ const TARGETS = [
   { key: "target_porter_id", alias: "targetPorterId", table: "porters", role: "porter" },
   { key: "target_admin_id", alias: "targetAdminId", table: "admins", role: "admin" },
 ];
+const FIREBASE_CONFIG_MESSAGE =
+  "Firebase Admin belum dikonfigurasi. Isi FIREBASE_SERVICE_ACCOUNT_BASE64, FIREBASE_SERVICE_ACCOUNT_JSON, atau FIREBASE_PROJECT_ID + FIREBASE_CLIENT_EMAIL + FIREBASE_PRIVATE_KEY.";
 
 function getTarget(body = {}) {
   for (const target of TARGETS) {
@@ -50,11 +52,7 @@ const sendNotification = async (req, res) => {
 
   const firebaseAdmin = getFirebaseAdmin();
   if (!firebaseAdmin) {
-    return failure(
-      res,
-      501,
-      "Firebase Admin belum dikonfigurasi di Railway. Isi FIREBASE_SERVICE_ACCOUNT_BASE64 atau FIREBASE_SERVICE_ACCOUNT_JSON."
-    );
+    return failure(res, 501, FIREBASE_CONFIG_MESSAGE);
   }
 
   const message = {

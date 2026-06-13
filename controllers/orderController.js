@@ -110,6 +110,10 @@ const getOrderById = async (req, res) => {
 };
 
 const createOrder = async (req, res) => {
+  if (req.auth?.role !== "user") {
+    return failure(res, 403, "Order hanya bisa dibuat oleh user login");
+  }
+
   const payload = mapOrderPayload(req.body);
   payload.status = payload.status || "menunggu";
   payload.lokasi_jemput =
@@ -117,11 +121,9 @@ const createOrder = async (req, res) => {
   payload.lokasi_tujuan =
     payload.lokasi_tujuan || `Lat: ${payload.lat_tujuan}, Lng: ${payload.lng_tujuan}`;
 
-  if (req.auth?.role === "user") {
-    payload.user_id = req.auth.id;
-    delete payload.porter_id;
-    payload.status = "menunggu";
-  }
+  payload.user_id = req.auth.id;
+  delete payload.porter_id;
+  payload.status = "menunggu";
 
   if (
     !payload.user_id ||

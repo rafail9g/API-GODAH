@@ -43,6 +43,20 @@ async function findSupabaseProfile(userId) {
   return null;
 }
 
+function isRestrictedProfile(profile) {
+  return (
+    ["user", "porter"].includes(profile?.role) &&
+    ["nonaktif", "diblokir"].includes(profile?.profile?.status)
+  );
+}
+
+function rejectRestrictedProfile(res, profile) {
+  return res.status(403).json({
+    success: false,
+    message: `Akun ${profile.role} sedang ${profile.profile.status}. Hubungi admin.`,
+  });
+}
+
 const authenticate = async (req, res, next) => {
   const rawHeader = req.headers.authorization || "";
   const token = rawHeader.startsWith("Bearer ") ? rawHeader.slice(7).trim() : null;
@@ -62,6 +76,9 @@ const authenticate = async (req, res, next) => {
         success: false,
         message: "Profil role tidak ditemukan untuk token ini",
       });
+    }
+    if (isRestrictedProfile(profile)) {
+      return rejectRestrictedProfile(res, profile);
     }
 
     req.auth = {
@@ -86,6 +103,9 @@ const authenticate = async (req, res, next) => {
       success: false,
       message: "Profil role tidak ditemukan untuk token ini",
     });
+  }
+  if (isRestrictedProfile(profile)) {
+    return rejectRestrictedProfile(res, profile);
   }
 
   req.auth = {
@@ -116,16 +136,6 @@ const requireRole = (...roles) => (req, res, next) => {
     return res.status(403).json({
       success: false,
       message: `Akses hanya untuk role: ${roles.join(", ")}`,
-    });
-  }
-
-  if (
-    req.auth.role === "porter" &&
-    ["nonaktif", "diblokir"].includes(req.auth.profile?.status)
-  ) {
-    return res.status(403).json({
-      success: false,
-      message: `Akun porter sedang ${req.auth.profile.status}. Hubungi admin.`,
     });
   }
 
