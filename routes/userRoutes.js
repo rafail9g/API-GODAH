@@ -4,16 +4,11 @@ const router = express.Router();
 const {
   getUsers,
   getUserById,
+  createUser,
   updateUser,
+  deleteUser,
 } = require("../controllers/userController");
 const { authenticate, requireRole } = require("../Middleware/middleware");
-
-const adminUserCrudDisabled = (_req, res) =>
-  res.status(405).json({
-    success: false,
-    message:
-      "Admin tidak bisa membuat atau menghapus user. Gunakan PUT /users/:id untuk mengubah status akun.",
-  });
 
 /**
  * @swagger
@@ -134,7 +129,7 @@ router.get("/:id", authenticate, requireRole("admin"), getUserById);
  *       201:
  *         description: Berhasil ditambahkan
  */
-router.post("/", authenticate, requireRole("admin"), adminUserCrudDisabled);
+router.post("/", authenticate, requireRole("admin"), createUser);
 
 /**
  * @swagger
@@ -190,6 +185,6 @@ router.put("/:id", authenticate, requireRole("admin"), updateUser);
  *       200:
  *         description: Berhasil dihapus
  */
-router.delete("/:id", authenticate, requireRole("admin"), adminUserCrudDisabled);
+router.delete("/:id", authenticate, requireRole("admin"), deleteUser);
 
 module.exports = router;

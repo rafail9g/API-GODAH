@@ -4,19 +4,14 @@ const router = express.Router();
 const {
   getPorters,
   getPorterById,
+  createPorter,
   updatePorter,
   getPorterLocation,
   updatePorterLocation,
   updatePorterOnlineStatus,
+  deletePorter,
 } = require("../controllers/porterController");
 const { authenticate, requireRole } = require("../Middleware/middleware");
-
-const adminPorterCrudDisabled = (_req, res) =>
-  res.status(405).json({
-    success: false,
-    message:
-      "Admin tidak bisa membuat atau menghapus porter. Gunakan PUT /porters/:id untuk mengubah status akun.",
-  });
 
 /**
  * @swagger
@@ -198,7 +193,7 @@ router.get("/", authenticate, requireRole("admin"), getPorters);
  *       201:
  *         description: Porter berhasil ditambahkan
  */
-router.post("/", authenticate, requireRole("admin"), adminPorterCrudDisabled);
+router.post("/", authenticate, requireRole("admin"), createPorter);
 
 /**
  * @swagger
@@ -277,6 +272,6 @@ router.put("/:id", authenticate, requireRole("admin"), updatePorter);
  *       200:
  *         description: Porter berhasil dihapus
  */
-router.delete("/:id", authenticate, requireRole("admin"), adminPorterCrudDisabled);
+router.delete("/:id", authenticate, requireRole("admin"), deletePorter);
 
 module.exports = router;
