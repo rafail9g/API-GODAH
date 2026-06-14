@@ -72,6 +72,50 @@ router.post("/create", optionalAuthenticate, createPayment);
  *     description: Endpoint ini dipanggil otomatis oleh Midtrans saat status pembayaran berubah.
  */
 router.post("/notification", handleNotification);
+
+/**
+ * @swagger
+ * /payments/midtrans/webhook:
+ *   post:
+ *     summary: Webhook Midtrans untuk update payment order otomatis
+ *     tags: [Payments]
+ *     description: No auth. Pasang URL ini di dashboard Midtrans/Railway agar orders.payment_status otomatis berubah saat pembayaran berhasil. Untuk tes Swagger manual, isi order_id dengan midtrans_order_id dari response /payments/create.
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           example:
+ *             order_id: GD-1781427803455-951b5918
+ *             transaction_status: settlement
+ *             fraud_status: accept
+ *             payment_type: echannel
+ *           schema:
+ *             type: object
+ *             required:
+ *               - order_id
+ *               - transaction_status
+ *             properties:
+ *               order_id:
+ *                 type: string
+ *                 description: Midtrans order ID dari response /payments/create, bukan UUID order Supabase.
+ *                 example: GD-1781427803455-951b5918
+ *               transaction_status:
+ *                 type: string
+ *                 example: settlement
+ *               fraud_status:
+ *                 type: string
+ *                 example: accept
+ *               payment_type:
+ *                 type: string
+ *                 example: bank_transfer
+ *     responses:
+ *       200:
+ *         description: Notification berhasil diproses
+ *       400:
+ *         description: Body notification kosong
+ *       500:
+ *         description: Gagal memproses notification Midtrans
+ */
 router.post("/midtrans/webhook", handleNotification);
 
 /**

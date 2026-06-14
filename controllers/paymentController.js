@@ -55,6 +55,24 @@ async function syncOrderPaymentStatus(orderId, midtransOrderId, paymentStatus) {
   }
 }
 
+async function getMidtransStatusFromNotification(notification) {
+  try {
+    return await coreApi.transaction.notification(notification);
+  } catch (error) {
+    const midtransOrderId = firstDefined(
+      notification.order_id,
+      notification.midtrans_order_id,
+      notification.midtransOrderId
+    );
+
+    if (!midtransOrderId) {
+      throw error;
+    }
+
+    return coreApi.transaction.status(midtransOrderId);
+  }
+}
+
 async function ensurePaymentAccessByOrderId(res, orderId, auth) {
   if (!auth || auth.role === "admin") return true;
 
@@ -230,7 +248,20 @@ async function handleNotification(req, res) {
       });
     }
 
-    const statusResponse = await coreApi.transaction.notification(notification);
+    let statusResponse;
+
+    try {
+      statusResponse = await getMidtransStatusFromNotification(notification);
+    } catch (midtransError) {
+      console.warn("Midtrans notification ignored:", midtransError.message);
+
+      return res.status(200).json({
+        success: true,
+        message: "Notification diterima, tapi transaksi belum ditemukan di Midtrans",
+        ignored: true,
+        error: midtransError.message,
+      });
+    }
 
     const midtransOrderId = statusResponse.order_id;
     const transactionStatus = statusResponse.transaction_status;
@@ -253,9 +284,14 @@ async function handleNotification(req, res) {
       .single();
 
     if (paymentError) {
-      return res.status(500).json({
-        success: false,
-        message: "Gagal update payment dari notification Midtrans",
+      console.warn("Payment notification ignored:", paymentError.message);
+
+      return res.status(200).json({
+        success: true,
+        message: "Notification diterima, tapi payment lokal belum ditemukan",
+        ignored: true,
+        midtrans_order_id: midtransOrderId,
+        payment_status: paymentStatus,
         error: paymentError.message,
       });
     }
