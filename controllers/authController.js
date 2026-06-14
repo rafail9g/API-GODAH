@@ -1,10 +1,47 @@
+const { createClient } = require("@supabase/supabase-js");
 const supabase = require("../config/supabase");
 const { signToken, verifyToken } = require("../utils/authToken");
-const { failure, mapUserPayload, success } = require("../utils/mobileContract");
+const {
+  failure,
+  firstDefined,
+  mapUserPayload,
+  success,
+} = require("../utils/mobileContract");
 const { hashPassword, passwordMatches } = require("../utils/passwordHash");
 
 function isRestrictedAccount(account) {
   return ["nonaktif", "diblokir"].includes(account?.status);
+}
+
+function createPasswordResetClient() {
+  return createClient(process.env.SUPABASE_URL, process.env.SUPABASE_KEY, {
+    auth: {
+      persistSession: false,
+      autoRefreshToken: false,
+      detectSessionInUrl: false,
+    },
+  });
+}
+
+async function findAccountByEmail(email) {
+  const normalizedEmail = String(email || "").trim().toLowerCase();
+  const candidates = [
+    { table: "users", role: "user" },
+    { table: "porters", role: "porter" },
+  ];
+
+  for (const candidate of candidates) {
+    const { data, error } = await supabase
+      .from(candidate.table)
+      .select("*")
+      .eq("email", normalizedEmail)
+      .maybeSingle();
+
+    if (error) throw error;
+    if (data) return { account: data, role: candidate.role };
+  }
+
+  return null;
 }
 
 function profilePayloadForRole(role, authUser, body = {}) {
@@ -315,6 +352,120 @@ async function login(req, res) {
   return authResponse(res, "Login berhasil", account, accountRole);
 }
 
+async function forgotPassword(req, res) {
+  try {
+    const email = firstDefined(req.body?.email);
+
+    if (!email) {
+      return failure(res, 400, "email wajib diisi");
+    }
+
+    const existingAccount = await findAccountByEmail(email);
+    if (!existingAccount) {
+      return failure(res, 404, "Email akun tidak ditemukan");
+    }
+
+    const passwordClient = createPasswordResetClient();
+    const { error } = await passwordClient.auth.resetPasswordForEmail(
+      String(email).trim().toLowerCase()
+    );
+
+    if (error) {
+      return failure(res, 400, "Gagal mengirim token reset password", error.message);
+    }
+
+    return success(res, "Token reset password sudah dikirim ke email", null, 200, {
+      email: String(email).trim().toLowerCase(),
+      role: existingAccount.role,
+    });
+  } catch (error) {
+    console.error("[FORGOT PASSWORD] Error:", error);
+    return failure(res, 500, "Forgot password error di server", error.message);
+  }
+}
+
+async function resetPassword(req, res) {
+  try {
+    const email = firstDefined(req.body?.email);
+    const token = firstDefined(req.body?.token, req.body?.otp, req.body?.code);
+    const newPassword = firstDefined(
+      req.body?.new_password,
+      req.body?.newPassword,
+      req.body?.password
+    );
+
+    if (!email || !token || !newPassword) {
+      return failure(res, 400, "email, token, dan new_password/password wajib diisi");
+    }
+
+    if (String(newPassword).length < 8) {
+      return failure(res, 400, "Password minimal 8 karakter");
+    }
+
+    const existingAccount = await findAccountByEmail(email);
+    if (!existingAccount) {
+      return failure(res, 404, "Email akun tidak ditemukan");
+    }
+
+    const passwordClient = createPasswordResetClient();
+    const { data: verifyData, error: verifyError } =
+      await passwordClient.auth.verifyOtp({
+        email: String(email).trim().toLowerCase(),
+        token: String(token).trim(),
+        type: "recovery",
+      });
+
+    if (verifyError || !verifyData?.session) {
+      return failure(
+        res,
+        400,
+        "Token reset password tidak valid atau sudah kedaluwarsa",
+        verifyError?.message
+      );
+    }
+
+    await passwordClient.auth.setSession({
+      access_token: verifyData.session.access_token,
+      refresh_token: verifyData.session.refresh_token,
+    });
+
+    const { error: updateAuthError } = await passwordClient.auth.updateUser({
+      password: String(newPassword),
+    });
+
+    if (updateAuthError) {
+      return failure(res, 400, "Gagal memperbarui password Auth", updateAuthError.message);
+    }
+
+    const table = existingAccount.role === "porter" ? "porters" : "users";
+    const { data: updatedProfile, error: profileError } = await supabase
+      .from(table)
+      .update({ password_hash: "supabase_managed" })
+      .eq("email", String(email).trim().toLowerCase())
+      .select()
+      .maybeSingle();
+
+    if (profileError) {
+      return failure(
+        res,
+        400,
+        "Password Auth berhasil diubah, tapi profil gagal diperbarui",
+        profileError.message
+      );
+    }
+
+    await passwordClient.auth.signOut();
+
+    return success(res, "Password berhasil direset. Silakan login ulang.", updatedProfile, 200, {
+      [existingAccount.role]: updatedProfile,
+      role: existingAccount.role,
+    });
+  } catch (error) {
+    console.error("[RESET PASSWORD] Error:", error);
+    return failure(res, 500, "Reset password error di server", error.message);
+  }
+}
+
 async function googleLogin(req, res) {
   try {
     const body = req.body || {};
@@ -482,8 +633,10 @@ async function me(req, res) {
 
 module.exports = {
   completeGoogleProfile,
+  forgotPassword,
   googleLogin,
   login,
   me,
   register,
+  resetPassword,
 };

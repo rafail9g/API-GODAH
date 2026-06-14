@@ -8,7 +8,6 @@ const {
   getPorterLocation,
   updatePorterLocation,
   updatePorterOnlineStatus,
-  resetPorterPassword,
 } = require("../controllers/porterController");
 const { authenticate, requireRole } = require("../Middleware/middleware");
 
@@ -69,44 +68,6 @@ router.put("/me", authenticate, requireRole("porter"), (req, res) => {
   req.params.id = req.auth.id;
   return updatePorter(req, res);
 });
-
-/**
- * @swagger
- * /porters/me/reset-password:
- *   put:
- *     summary: Reset password sendiri (Porter)
- *     tags: [Porters]
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           example:
- *             current_password: password123
- *             new_password: password456
- *           schema:
- *             type: object
- *             properties:
- *               current_password:
- *                 type: string
- *               new_password:
- *                 type: string
- *     responses:
- *       200:
- *         description: Password berhasil direset
- *         content:
- *           application/json:
- *             example:
- *               success: true
- *               message: Password porter berhasil direset
- *       401:
- *         description: Password lama salah
- *         content:
- *           application/json:
- *             example:
- *               success: false
- *               message: Password lama salah
- */
-router.put("/me/reset-password", authenticate, requireRole("porter"), resetPorterPassword);
 
 /**
  * @swagger

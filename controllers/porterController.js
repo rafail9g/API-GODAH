@@ -7,7 +7,7 @@ const {
   mapPorterPayload,
   success,
 } = require("../utils/mobileContract");
-const { hashPassword, passwordMatches } = require("../utils/passwordHash");
+const { hashPassword } = require("../utils/passwordHash");
 
 const PORTER_SAFE_SELECT = "id, nama, email, no_hp, status, status_verifikasi, is_aktif, latitude, longitude, total_selesai";
 
@@ -181,49 +181,6 @@ const updatePorterOnlineStatus = async (req, res) => {
   return success(res, "Status online porter berhasil diupdate", data, 200, { porter: data });
 };
 
-const resetPorterPassword = async (req, res) => {
-  const currentPassword = firstDefined(
-    req.body.current_password,
-    req.body.currentPassword,
-    req.body.old_password,
-    req.body.oldPassword,
-    req.body.password_lama,
-    req.body.passwordLama
-  );
-  const newPassword = firstDefined(
-    req.body.new_password,
-    req.body.newPassword,
-    req.body.password_baru,
-    req.body.passwordBaru,
-    req.body.password
-  );
-
-  if (!currentPassword || !newPassword) {
-    return failure(res, 400, "current_password/old_password dan new_password/password wajib diisi");
-  }
-
-  const { data: porter, error: porterError } = await supabase
-    .from("porters")
-    .select("id, password_hash")
-    .eq("id", req.auth.id)
-    .single();
-
-  if (porterError || !porter) return failure(res, 404, "Porter tidak ditemukan", porterError?.message);
-  if (!passwordMatches(porter.password_hash, currentPassword)) {
-    return failure(res, 401, "Password lama salah");
-  }
-
-  const { data, error } = await supabase
-    .from("porters")
-    .update({ password_hash: hashPassword(newPassword) })
-    .eq("id", req.auth.id)
-    .select(PORTER_SAFE_SELECT)
-    .single();
-
-  if (error) return failure(res, 400, "Gagal reset password porter", error.message);
-  return success(res, "Password porter berhasil direset", data, 200, { porter: data });
-};
-
 const deletePorter = async (req, res) => {
   const { id } = req.params;
 
@@ -260,6 +217,5 @@ module.exports = {
   getPorterLocation,
   updatePorterLocation,
   updatePorterOnlineStatus,
-  resetPorterPassword,
   deletePorter
 };

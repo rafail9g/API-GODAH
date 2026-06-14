@@ -31,7 +31,7 @@ const options = {
       }
     ]
   },
-  apis: ["./routes/*.js"]
+  apis: ["./routes/paymentRoutes.js"]
 };
 
 module.exports = swaggerJsdoc(options);

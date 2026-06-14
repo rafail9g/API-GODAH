@@ -3,10 +3,12 @@ const router = express.Router();
 
 const {
   completeGoogleProfile,
+  forgotPassword,
   googleLogin,
   login,
   me,
   register,
+  resetPassword,
 } = require("../controllers/authController");
 const { authenticate } = require("../Middleware/middleware");
 
@@ -77,6 +79,78 @@ router.post("/register", register);
  *         description: Login berhasil, backend otomatis mendeteksi role dan field token bisa dipakai di Swagger Authorize
  */
 router.post("/login", login);
+
+/**
+ * @swagger
+ * /auth/forgot-password:
+ *   post:
+ *     summary: Kirim token lupa password ke email (Public)
+ *     tags: [Auth]
+ *     security: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [email]
+ *             properties:
+ *               email:
+ *                 type: string
+ *                 example: rafail@mail.com
+ *     responses:
+ *       200:
+ *         description: Token reset password dikirim ke email
+ *         content:
+ *           application/json:
+ *             example:
+ *               success: true
+ *               message: Token reset password sudah dikirim ke email
+ *               data: null
+ *               email: rafail@mail.com
+ *               role: user
+ *       404:
+ *         description: Email tidak ditemukan
+ */
+router.post("/forgot-password", forgotPassword);
+
+/**
+ * @swagger
+ * /auth/reset-password:
+ *   post:
+ *     summary: Reset password dengan token email (Public)
+ *     tags: [Auth]
+ *     security: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [email, token, new_password]
+ *             properties:
+ *               email:
+ *                 type: string
+ *                 example: rafail@mail.com
+ *               token:
+ *                 type: string
+ *                 example: "123456"
+ *               new_password:
+ *                 type: string
+ *                 example: password456
+ *     responses:
+ *       200:
+ *         description: Password berhasil direset
+ *         content:
+ *           application/json:
+ *             example:
+ *               success: true
+ *               message: Password berhasil direset. Silakan login ulang.
+ *               role: user
+ *       400:
+ *         description: Token invalid/kedaluwarsa atau input tidak valid
+ */
+router.post("/reset-password", resetPassword);
 
 /**
  * @swagger

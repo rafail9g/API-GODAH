@@ -5,7 +5,6 @@ const {
   getUsers,
   getUserById,
   updateUser,
-  resetPassword,
 } = require("../controllers/userController");
 const { authenticate, requireRole } = require("../Middleware/middleware");
 
@@ -78,37 +77,6 @@ router.put("/me", authenticate, requireRole("user"), (req, res) => {
   req.params.id = req.auth.id;
   return updateUser(req, res);
 });
-
-/**
- * @swagger
- * /users/me/reset-password:
- *   put:
- *     summary: Reset password sendiri (User)
- *     tags: [Users]
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           example:
- *             current_password: password123
- *             new_password: password456
- *           schema:
- *             type: object
- *             properties:
- *               current_password:
- *                 type: string
- *               new_password:
- *                 type: string
- *     responses:
- *       200:
- *         description: Password berhasil direset
- *         content:
- *           application/json:
- *             example:
- *               success: true
- *               message: Password berhasil direset
- */
-router.put("/me/reset-password", authenticate, requireRole("user"), resetPassword);
 
 router.get("/", authenticate, requireRole("admin"), getUsers);
 

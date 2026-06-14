@@ -55,24 +55,6 @@ async function syncOrderPaymentStatus(orderId, midtransOrderId, paymentStatus) {
   }
 }
 
-async function getMidtransStatusFromNotification(notification) {
-  try {
-    return await coreApi.transaction.notification(notification);
-  } catch (error) {
-    const midtransOrderId = firstDefined(
-      notification.order_id,
-      notification.midtrans_order_id,
-      notification.midtransOrderId
-    );
-
-    if (!midtransOrderId) {
-      throw error;
-    }
-
-    return coreApi.transaction.status(midtransOrderId);
-  }
-}
-
 async function ensurePaymentAccessByOrderId(res, orderId, auth) {
   if (!auth || auth.role === "admin") return true;
 
@@ -237,84 +219,6 @@ async function createPayment(req, res) {
   }
 }
 
-async function handleNotification(req, res) {
-  try {
-    const notification = req.body || {};
-
-    if (!notification || Object.keys(notification).length === 0) {
-      return res.status(400).json({
-        success: false,
-        message: "Body notification kosong",
-      });
-    }
-
-    let statusResponse;
-
-    try {
-      statusResponse = await getMidtransStatusFromNotification(notification);
-    } catch (midtransError) {
-      console.warn("Midtrans notification ignored:", midtransError.message);
-
-      return res.status(200).json({
-        success: true,
-        message: "Notification diterima, tapi transaksi belum ditemukan di Midtrans",
-        ignored: true,
-        error: midtransError.message,
-      });
-    }
-
-    const midtransOrderId = statusResponse.order_id;
-    const transactionStatus = statusResponse.transaction_status;
-    const fraudStatus = statusResponse.fraud_status;
-    const paymentType = statusResponse.payment_type;
-
-    const paymentStatus = mapMidtransStatus(transactionStatus, fraudStatus);
-
-    const { data: payment, error: paymentError } = await supabase
-      .from("payments")
-      .update({
-        status: paymentStatus,
-        payment_type: paymentType || null,
-        transaction_status: transactionStatus || null,
-        fraud_status: fraudStatus || null,
-        updated_at: new Date().toISOString(),
-      })
-      .eq("midtrans_order_id", midtransOrderId)
-      .select()
-      .single();
-
-    if (paymentError) {
-      console.warn("Payment notification ignored:", paymentError.message);
-
-      return res.status(200).json({
-        success: true,
-        message: "Notification diterima, tapi payment lokal belum ditemukan",
-        ignored: true,
-        midtrans_order_id: midtransOrderId,
-        payment_status: paymentStatus,
-        error: paymentError.message,
-      });
-    }
-
-    await syncOrderPaymentStatus(payment.order_id, midtransOrderId, paymentStatus);
-
-    return res.status(200).json({
-      success: true,
-      message: "Notification processed",
-      payment_status: paymentStatus,
-      data: payment,
-    });
-  } catch (error) {
-    console.error("Notification error:", error);
-
-    return res.status(500).json({
-      success: false,
-      message: "Gagal memproses notification Midtrans",
-      error: error.message,
-    });
-  }
-}
-
 async function getPaymentByOrderId(req, res) {
   try {
     const { order_id } = req.params;
@@ -350,40 +254,6 @@ async function getPaymentByOrderId(req, res) {
     });
   } catch (error) {
     console.error("Get payment by order error:", error);
-
-    return res.status(500).json({
-      success: false,
-      message: "Terjadi kesalahan server",
-      error: error.message,
-    });
-  }
-}
-
-async function getPaymentById(req, res) {
-  try {
-    const { id } = req.params;
-
-    const { data, error } = await supabase
-      .from("payments")
-      .select("*")
-      .eq("id", id)
-      .single();
-
-    if (error || !data) {
-      return res.status(404).json({
-        success: false,
-        message: "Payment tidak ditemukan",
-        error: error ? error.message : null,
-      });
-    }
-
-    return res.status(200).json({
-      success: true,
-      message: "Payment ditemukan",
-      data,
-    });
-  } catch (error) {
-    console.error("Get payment by id error:", error);
 
     return res.status(500).json({
       success: false,
@@ -487,79 +357,8 @@ async function checkPaymentStatus(req, res) {
   }
 }
 
-async function markPaymentPaidManual(req, res) {
-  try {
-    const body = req.body || {};
-    const midtrans_order_id = firstDefined(body.midtrans_order_id, body.midtransOrderId);
-    const payment_type = firstDefined(body.payment_type, body.paymentType);
-
-    if (!midtrans_order_id) {
-      return res.status(400).json({
-        success: false,
-        message: "midtrans_order_id wajib diisi",
-      });
-    }
-
-    const { data: existingPayment, error: existingError } = await supabase
-      .from("payments")
-      .select("order_id")
-      .eq("midtrans_order_id", midtrans_order_id)
-      .single();
-
-    if (existingError || !existingPayment) {
-      return res.status(404).json({
-        success: false,
-        message: "Payment tidak ditemukan",
-        error: existingError ? existingError.message : null,
-      });
-    }
-
-    if (!(await ensurePaymentAccessByOrderId(res, existingPayment.order_id, req.auth))) return;
-
-    const { data: payment, error } = await supabase
-      .from("payments")
-      .update({
-        status: "paid",
-        payment_type: payment_type || "bank_transfer",
-        transaction_status: "settlement",
-        fraud_status: "accept",
-        updated_at: new Date().toISOString(),
-      })
-      .eq("midtrans_order_id", midtrans_order_id)
-      .select()
-      .single();
-
-    if (error) {
-      return res.status(500).json({
-        success: false,
-        message: "Gagal update payment manual",
-        error: error.message,
-      });
-    }
-
-    await syncOrderPaymentStatus(payment.order_id, midtrans_order_id, "paid");
-
-    return res.status(200).json({
-      success: true,
-      message: "Payment berhasil diubah menjadi paid secara manual development",
-      data: payment,
-    });
-  } catch (error) {
-    console.error("Mark payment paid manual error:", error);
-
-    return res.status(500).json({
-      success: false,
-      message: "Terjadi kesalahan server",
-      error: error.message,
-    });
-  }
-}
-
 module.exports = {
   createPayment,
-  handleNotification,
   getPaymentByOrderId,
-  getPaymentById,
   checkPaymentStatus,
-  markPaymentPaidManual,
 };

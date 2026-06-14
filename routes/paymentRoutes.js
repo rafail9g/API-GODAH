@@ -3,13 +3,10 @@ const router = express.Router();
 
 const {
   createPayment,
-  handleNotification,
   getPaymentByOrderId,
-  getPaymentById,
   checkPaymentStatus,
-  markPaymentPaidManual
 } = require("../controllers/paymentController");
-const { authenticate, optionalAuthenticate, requireRole } = require("../Middleware/middleware");
+const { optionalAuthenticate } = require("../Middleware/middleware");
 
 /**
  * @swagger
@@ -31,6 +28,9 @@ const { authenticate, optionalAuthenticate, requireRole } = require("../Middlewa
  *         application/json:
  *           example:
  *             order_id: 0bfc19b6-dfc7-44f9-8fce-c92df657bc2e
+ *             amount: 15000
+ *             user_name: Rafail
+ *             user_email: rafail@mail.com
  *           schema:
  *             type: object
  *             required:
@@ -39,6 +39,18 @@ const { authenticate, optionalAuthenticate, requireRole } = require("../Middlewa
  *               order_id:
  *                 type: string
  *                 example: 0bfc19b6-dfc7-44f9-8fce-c92df657bc2e
+ *               amount:
+ *                 type: integer
+ *                 description: Optional dari Flutter; server tetap memprioritaskan total_biaya order.
+ *                 example: 15000
+ *               user_name:
+ *                 type: string
+ *                 description: Optional dari Flutter untuk customer_details Midtrans.
+ *                 example: Rafail
+ *               user_email:
+ *                 type: string
+ *                 description: Optional dari Flutter untuk customer_details Midtrans.
+ *                 example: rafail@mail.com
  *     responses:
  *       201:
  *         description: Transaksi Midtrans berhasil dibuat
@@ -62,61 +74,6 @@ const { authenticate, optionalAuthenticate, requireRole } = require("../Middlewa
  *         description: Gagal membuat transaksi Midtrans
  */
 router.post("/create", optionalAuthenticate, createPayment);
-
-/**
- * @swagger
- * /payments/notification:
- *   post:
- *     summary: Webhook notifikasi pembayaran dari Midtrans (Midtrans)
- *     tags: [Payments]
- *     description: Endpoint ini dipanggil otomatis oleh Midtrans saat status pembayaran berubah.
- */
-router.post("/notification", handleNotification);
-
-/**
- * @swagger
- * /payments/midtrans/webhook:
- *   post:
- *     summary: Webhook Midtrans untuk update payment order otomatis
- *     tags: [Payments]
- *     description: No auth. Pasang URL ini di dashboard Midtrans/Railway agar orders.payment_status otomatis berubah saat pembayaran berhasil. Untuk tes Swagger manual, isi order_id dengan midtrans_order_id dari response /payments/create.
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           example:
- *             order_id: GD-1781427803455-951b5918
- *             transaction_status: settlement
- *             fraud_status: accept
- *             payment_type: echannel
- *           schema:
- *             type: object
- *             required:
- *               - order_id
- *               - transaction_status
- *             properties:
- *               order_id:
- *                 type: string
- *                 description: Midtrans order ID dari response /payments/create, bukan UUID order Supabase.
- *                 example: GD-1781427803455-951b5918
- *               transaction_status:
- *                 type: string
- *                 example: settlement
- *               fraud_status:
- *                 type: string
- *                 example: accept
- *               payment_type:
- *                 type: string
- *                 example: bank_transfer
- *     responses:
- *       200:
- *         description: Notification berhasil diproses
- *       400:
- *         description: Body notification kosong
- *       500:
- *         description: Gagal memproses notification Midtrans
- */
-router.post("/midtrans/webhook", handleNotification);
 
 /**
  * @swagger
@@ -151,40 +108,6 @@ router.post("/check-status", optionalAuthenticate, checkPaymentStatus);
 
 /**
  * @swagger
- * /payments/mark-paid-manual:
- *   post:
- *     summary: Mengubah status payment menjadi paid manual (User/Admin)
- *     tags: [Payments]
- *     description: Endpoint khusus development/demo untuk mengubah status pembayaran menjadi paid jika webhook atau check-status Midtrans belum stabil. Jangan digunakan untuk production.
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             required:
- *               - midtrans_order_id
- *             properties:
- *               midtrans_order_id:
- *                 type: string
- *                 example: GD-1780807575772-c88e597c
- *               payment_type:
- *                 type: string
- *                 example: bank_transfer
- *     responses:
- *       200:
- *         description: Payment berhasil diubah menjadi paid secara manual development
- *       400:
- *         description: midtrans_order_id wajib diisi
- *       404:
- *         description: Payment tidak ditemukan
- *       500:
- *         description: Gagal update payment manual
- */
-router.post("/mark-paid-manual", optionalAuthenticate, markPaymentPaidManual);
-
-/**
- * @swagger
  * /payments/order/{order_id}:
  *   get:
  *     summary: Mengambil data pembayaran berdasarkan order ID (User/Admin)
@@ -206,29 +129,5 @@ router.post("/mark-paid-manual", optionalAuthenticate, markPaymentPaidManual);
  *         description: Gagal mengambil payment berdasarkan order_id
  */
 router.get("/order/:order_id", optionalAuthenticate, getPaymentByOrderId);
-
-/**
- * @swagger
- * /payments/{id}:
- *   get:
- *     summary: Mengambil data pembayaran berdasarkan ID payment (Admin)
- *     tags: [Payments]
- *     parameters:
- *       - in: path
- *         name: id
- *         required: true
- *         schema:
- *           type: string
- *         description: UUID payment dari tabel payments
- *         example: 658da179-a8ad-484e-a78a-2ddca3bbda4d
- *     responses:
- *       200:
- *         description: Payment ditemukan
- *       404:
- *         description: Payment tidak ditemukan
- *       500:
- *         description: Terjadi kesalahan server
- */
-router.get("/:id", authenticate, requireRole("admin"), getPaymentById);
 
 module.exports = router;

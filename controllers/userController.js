@@ -7,7 +7,7 @@ const {
   mapUserPayload,
   success,
 } = require("../utils/mobileContract");
-const { hashPassword, passwordMatches } = require("../utils/passwordHash");
+const { hashPassword } = require("../utils/passwordHash");
 
 const getUsers = async (req, res) => {
   const { data, error } = await supabase.from("users").select("*");
@@ -94,36 +94,6 @@ const updateUser = async (req, res) => {
   return success(res, "User berhasil diupdate", data, 200, { user: data });
 };
 
-const resetPassword = async (req, res) => {
-  const currentPassword = firstDefined(req.body.current_password, req.body.old_password, req.body.oldPassword);
-  const newPassword = firstDefined(req.body.new_password, req.body.password, req.body.newPassword);
-
-  if (!currentPassword || !newPassword) {
-    return failure(res, 400, "current_password/old_password dan new_password/password wajib diisi");
-  }
-
-  const { data: user, error: userError } = await supabase
-    .from("users")
-    .select("id, password_hash")
-    .eq("id", req.auth.id)
-    .single();
-
-  if (userError || !user) return failure(res, 404, "User tidak ditemukan", userError?.message);
-  if (!passwordMatches(user.password_hash, currentPassword)) {
-    return failure(res, 401, "Password lama salah");
-  }
-
-  const { data, error } = await supabase
-    .from("users")
-    .update({ password_hash: hashPassword(newPassword) })
-    .eq("id", req.auth.id)
-    .select()
-    .single();
-
-  if (error) return failure(res, 400, "Gagal reset password", error.message);
-  return success(res, "Password berhasil direset", data, 200, { user: data });
-};
-
 const deleteUser = async (req, res) => {
   const { id } = req.params;
 
@@ -157,6 +127,5 @@ module.exports = {
   getUserById,
   createUser,
   updateUser,
-  resetPassword,
   deleteUser
 };
