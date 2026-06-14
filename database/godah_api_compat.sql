@@ -123,6 +123,18 @@ ALTER TABLE public.orders
   ALTER COLUMN status TYPE public.order_status USING status::text::public.order_status,
   ALTER COLUMN status SET DEFAULT 'menunggu';
 
+ALTER TABLE public.orders
+  ADD COLUMN IF NOT EXISTS payment_status TEXT NOT NULL DEFAULT 'pending'
+    CHECK (payment_status IN ('pending', 'paid', 'failed', 'expired', 'cancelled')),
+  ADD COLUMN IF NOT EXISTS midtrans_order_id TEXT,
+  ADD COLUMN IF NOT EXISTS paid_at TIMESTAMP WITH TIME ZONE;
+
+CREATE INDEX IF NOT EXISTS idx_orders_payment_status
+  ON public.orders(payment_status);
+
+CREATE INDEX IF NOT EXISTS idx_orders_midtrans_order_id
+  ON public.orders(midtrans_order_id);
+
 CREATE TABLE IF NOT EXISTS public.ratings (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   order_id UUID NOT NULL UNIQUE REFERENCES public.orders(id) ON DELETE CASCADE,

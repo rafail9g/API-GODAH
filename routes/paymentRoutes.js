@@ -72,6 +72,7 @@ router.post("/create", optionalAuthenticate, createPayment);
  *     description: Endpoint ini dipanggil otomatis oleh Midtrans saat status pembayaran berubah.
  */
 router.post("/notification", handleNotification);
+router.post("/midtrans/webhook", handleNotification);
 
 /**
  * @swagger

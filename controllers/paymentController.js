@@ -24,6 +24,37 @@ function generateMidtransOrderId(orderId) {
   return `GD-${Date.now()}-${shortOrderId}`;
 }
 
+function toOrderPaymentStatus(paymentStatus) {
+  if (paymentStatus === "paid") return "paid";
+  if (paymentStatus === "failed") return "failed";
+  if (paymentStatus === "expired") return "expired";
+  if (paymentStatus === "cancelled") return "cancelled";
+  return "pending";
+}
+
+async function syncOrderPaymentStatus(orderId, midtransOrderId, paymentStatus) {
+  if (!orderId) return;
+
+  const orderPaymentStatus = toOrderPaymentStatus(paymentStatus);
+  const updateData = {
+    payment_status: orderPaymentStatus,
+    midtrans_order_id: midtransOrderId || null,
+  };
+
+  if (orderPaymentStatus === "paid") {
+    updateData.paid_at = new Date().toISOString();
+  }
+
+  const { error } = await supabase
+    .from("orders")
+    .update(updateData)
+    .eq("id", orderId);
+
+  if (error) {
+    throw new Error(`Gagal update payment_status order: ${error.message}`);
+  }
+}
+
 async function ensurePaymentAccessByOrderId(res, orderId, auth) {
   if (!auth || auth.role === "admin") return true;
 
@@ -167,6 +198,8 @@ async function createPayment(req, res) {
       });
     }
 
+    await syncOrderPaymentStatus(order_id, midtransOrderId, "pending");
+
     return res.status(201).json({
       success: true,
       message: "Transaksi Midtrans berhasil dibuat",
@@ -226,6 +259,8 @@ async function handleNotification(req, res) {
         error: paymentError.message,
       });
     }
+
+    await syncOrderPaymentStatus(payment.order_id, midtransOrderId, paymentStatus);
 
     return res.status(200).json({
       success: true,
@@ -380,6 +415,8 @@ async function checkPaymentStatus(req, res) {
         });
       }
 
+      await syncOrderPaymentStatus(payment.order_id, midtrans_order_id, paymentStatus);
+
       return res.status(200).json({
         success: true,
         message: "Status payment berhasil disinkronkan",
@@ -463,6 +500,8 @@ async function markPaymentPaidManual(req, res) {
         error: error.message,
       });
     }
+
+    await syncOrderPaymentStatus(payment.order_id, midtrans_order_id, "paid");
 
     return res.status(200).json({
       success: true,
